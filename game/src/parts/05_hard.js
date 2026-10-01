@@ -3,33 +3,10 @@
    ========================================================================== */
 
 /* --- добавляем уровень «КОД» перед финальным PRINT --- */
-LEVELS.splice(6, 0, L8);
-NODE_META.splice(6, 0, {name:'КОД', sub:'почини программу'});
+LEVELS.splice(5, 0, L8);
 
 G.fails = G.fails || {};
 G.openMap = false;
-
-/* --- две новые карточки для «МЕМОРИ» (стало 8 пар) --- */
-const _drawIconOld = drawIcon;
-drawIcon = function(name, x, y, s, col){
-  if(name==='key' || name==='cup'){
-    ctx.fillStyle = col;
-    const p = (a,b,w,h)=>ctx.fillRect(x+a*s, y+b*s, w*s, h*s);
-    if(name==='key'){
-      p(0,3,4,4);
-      ctx.fillStyle = '#241445'; p(1,4,2,2); ctx.fillStyle = col;
-      p(4,4,6,2); p(8,6,2,2); p(6,6,2,1);
-    } else {
-      p(1,1,7,7); p(8,2,2,4); p(1,8,7,1);
-      ctx.fillStyle = '#241445'; p(2,2,5,3); ctx.fillStyle = col;
-      p(0,10,9,1);
-    }
-    return;
-  }
-  _drawIconOld(name, x, y, s, col);
-};
-ICON_H.key = 9; ICON_H.cup = 11;
-ICONS.push('key', 'cup');
 
 /* ==========================================================================
    ПРОПУСК ПОСЛЕ ТРЁХ ПОПЫТОК
@@ -191,24 +168,6 @@ G.screens.dialog.tap = function(x,y){
       text('ВЕТЕР ' + ((this.wind||0)>0 ? '→' : '←'), Math.round(W/2), 30, {sc:1, align:'center', color:CONFIG.P.sky});
       ctx.globalAlpha = 1;
     }
-  };
-})();
-
-/* --- 4 · МЕМОРИ: таймер на 8 пар --- */
-(function(){
-  const e = L4.enter, u = L4.update, d = L4.draw;
-  L4.enter = function(){ e.call(this); this.limit = 115; };
-  L4.update = function(dt){
-    u.call(this, dt);
-    if(this.limit > 0){
-      this.limit -= dt;
-      if(this.limit <= 0 && this.found < 8) loseLevel('Карты устали ждать. Ещё раз?');
-    }
-  };
-  L4.draw = function(){
-    d.call(this);
-    const s = Math.ceil(Math.max(0, this.limit||0));
-    text('⏱ '+s+'с', W-6, 16, {sc:1, align:'right', color: (this.limit<20 ? CONFIG.P.red : CONFIG.P.dim)});
   };
 })();
 

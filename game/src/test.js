@@ -6,7 +6,7 @@ const path = require('path');
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const m = html.match(/<script>([\s\S]*?)<\/script>/);
 let code = m[1];
-code += "\n;globalThis.__t = {G, LEVELS, CONFIG, CIP, RTH, MEM, MAZ, COD, FIN, EP1, EP2, EP3, EP4, EP5, CH, EP_N, AR_N, NH, EP_HEART_IDX, FINALE_NODE, key, ptr, heart, text, textW, wrap, fitSc, IMG, Snd, frame, W:()=>W, H:()=>H, LEVELS_N: LEVELS.length, fit, winLevel, goNow, startLevel, go, NODE_META, skipLevel, heartsDone, storyDone, arcDone, finaleReady, mapPick, mapTabOf, Win, drawGirl, decShift, safeLine, loveMagic, LOVEFX, AR, ARCH_META, ARCH_LEVELS, G_arIdx, G_ar, startArch, arWin, arLose, arHint, arLevel, arHints, arcShiftStr, ARC1_PLAIN, ARC2_ROWS, ARC3_PHRASE, ARC3_SHIFT, ALPH, aIdx, AR_N, ARC2_HEART, ARC2_ORDER, ARC2_FAKE, ARC2_N, ARC3_KEYS, ARC3_MIDI, ARC3_NAME, ARC3_PHRASES, ARC3_MOTIF, ARC3_STEP, ARC4_CLUES, ARC4_TIME, ARC4_SAY, ARC4_FAKE, ARC4_QUIZ, ARC5_OBJ, ARC5_N, ARC5_WEIGHT, ARC5_TASKS, ARC5_CLOCK0, openArchiveWin, glassBtn, ptr, drawBtn, MR_MEM, MR, MR_N, openFinale, mapPick};\n";
+code += "\n;globalThis.__t = {G, LEVELS, CONFIG, CIP, RTH, MEM, MAZ, COD, FIN, EP1, EP2, EP3, EP4, EP5, CH, EP_N, AR_N, NH, EP_HEART_IDX, FINALE_NODE, key, ptr, heart, text, textW, wrap, fitSc, IMG, Snd, frame, W:()=>W, H:()=>H, LEVELS_N: LEVELS.length, fit, winLevel, goNow, startLevel, go, NODE_META, skipLevel, heartsDone, load, save, storyDone, arcDone, finaleReady, mapPick, mapTabOf, Win, drawGirl, decShift, safeLine, loveMagic, LOVEFX, AR, ARCH_META, ARCH_LEVELS, G_arIdx, G_ar, startArch, arWin, arLose, arHint, arLevel, arHints, arcShiftStr, ARC1_PLAIN, ARC2_ROWS, ARC3_PHRASE, ARC3_SHIFT, ALPH, aIdx, AR_N, ARC2_HEART, ARC2_ORDER, ARC2_FAKE, ARC2_N, ARC3_KEYS, ARC3_MIDI, ARC3_NAME, ARC3_PHRASES, ARC3_MOTIF, ARC3_STEP, ARC4_CLUES, ARC4_TIME, ARC4_SAY, ARC4_FAKE, ARC4_QUIZ, ARC5_OBJ, ARC5_N, ARC5_WEIGHT, ARC5_TASKS, ARC5_CLOCK0, openArchiveWin, glassBtn, ptr, drawBtn, openFinale, mapPick};\n";
 
 let AUDIT = null;
 function rec(x, y, w, h) {
@@ -117,7 +117,7 @@ step('загрузка -> рабочий стол по пробелу', () => {
 });
 step('рабочий стол: четыре программы по ТЗ', () => {
   const names = desk().icons.map(i => i.name);
-  for (const need of ['ШИФР.exe', 'ПРОГРЕСС.exe', 'КОМАНДНАЯ СТРОКА', 'ПАРАМЕТРЫ'])
+  for (const need of ['ШИФР.exe', 'ДОСТИЖЕНИЯ.exe', 'КОМАНДНАЯ СТРОКА', 'ПАРАМЕТРЫ'])
     if (names.indexOf(need) < 0) throw new Error('нет иконки ' + need + ' (' + names.join(',') + ')');
 });
 step('рабочий стол: статус-строка 0 / 8', () => {
@@ -134,7 +134,7 @@ step('рабочий стол: меню ПУСК', () => {
   if (!desk().startOpen) throw new Error('меню не открылось');
   tap(10, T.H() - 10); frames(10);
 });
-step('рабочий стол: одиночный тап -> окно ПРОГРЕСС.exe', () => {
+step('рабочий стол: одиночный тап -> окно ДОСТИЖЕНИЯ.exe', () => {
   const d = desk(); d.layout();
   tap(d.icons[0].tx, d.icons[0].ty); frames(40);
   if (!T.G.win || T.G.win.kind !== 'map') throw new Error('нет окна прогресса');
@@ -148,7 +148,7 @@ step('карта: вкладки СЮЖЕТ/БОНУС', () => {
   T.G.screens.desktop.tap(tabs[0].x + 5, tabs[0].y + 5); frames(5);
   if (w.tab !== 0) throw new Error('вкладка не вернулась');
 });
-step('карта: пять сюжетных узлов + восемь бонусных + финал', () => {
+step('карта: пять сюжетных узлов + семь бонусных + финал', () => {
   if (T.NODE_META.length !== T.EP_N + T.AR_N + 1) throw new Error('узлов: ' + T.NODE_META.length);
   const story = T.NODE_META.slice(0, T.EP_N).map(n => n.name);
   const want = ['ШИФР', 'РИТМ СЕРДЦА', 'ВОСПОМИНАНИЯ', 'ЛАБИРИНТ И ДОЖДЬ', 'ИСПРАВЛЕНИЕ КОДА'];
@@ -387,8 +387,10 @@ step('пропуск уровня после трёх провалов', () => {
 });
 
 console.log('— бонусные мини-игры —');
-step('восемь бонусных игр на месте', () => {
+step('семь бонусных игр на месте, бонусного поцелуя больше нет', () => {
   if (LEVELS_N !== T.EP_N + T.AR_N) throw new Error('уровней: ' + LEVELS_N);
+  if (T.LEVELS.some(l => l.name === 'ПОЦЕЛУЙ' || l.name === 'МЕМОРИ')) throw new Error('удалённая игра осталась в списке');
+  if (T.NODE_META.some(n => /ПОЦЕЛУЙ|МЕМОРИ|MEMORY ROOM/i.test(n.name))) throw new Error('удалённая игра осталась на карте');
   for (let i = T.EP_N; i < LEVELS_N; i++)
     if (!T.LEVELS[i] || typeof T.LEVELS[i].enter !== 'function') throw new Error('битый уровень ' + i);
 });
@@ -408,19 +410,10 @@ step('бонус: РУКА крутится', () => {
   keyDown('ArrowRight'); frames(30); keyUp('ArrowRight');
   if (Math.abs(L.a - a0) < 0.3) throw new Error('рука не вращается');
 });
-step('бонус: МЕМОРИ находит 8 пар', () => {
-  const i = T.EP_N + 5;
-  enterLevel(i);
-  const L = T.LEVELS[i];
-  if (!L.cards) throw new Error('нет карт, уровень ' + i + ' = ' + L.name);
-  const groups = {};
-  L.cards.forEach((c, k) => { (groups[c.n] = groups[c.n] || []).push(k); });
-  for (const n in groups) {
-    const [a, b] = groups[n];
-    tap(L.cards[a].x + L.cs / 2, L.cards[a].y + L.cs / 2); frames(3);
-    tap(L.cards[b].x + L.cs / 2, L.cards[b].y + L.cs / 2); frames(70);
-  }
-  if (L.found !== 8) throw new Error('найдено пар: ' + L.found);
+step('финальный поцелуй — только анимация, не бонусная мини-игра', () => {
+  if (T.LEVELS.some(l => l.name === 'ПОЦЕЛУЙ')) throw new Error('поцелуй остался отдельным уровнем');
+  if (T.G.screens.memroom) throw new Error('старый MEMORY ROOM всё ещё включён');
+  if (!T.G.screens.kiss || typeof T.G.screens.kiss.update !== 'function') throw new Error('нет финальной анимации поцелуя');
 });
 step('бонус: ПРИНТ печатает фразу', () => {
   const i = LEVELS_N - 1;
@@ -502,7 +495,7 @@ step('финал закрыт, пока не собраны 8 сердец', () 
   if (!T.G.win || T.G.win.kind !== 'sys') throw new Error('нет отказа: ' + (T.G.win && T.G.win.kind));
   T.Win.close(); frames(20);
 });
-step('восемь сердец сливаются в одно', () => {
+step('после сбора сердец: поцелуй-анимация -> письмо', () => {
   T.G.hearts = new Array(NH_N).fill(false);
   for (let i = 0; i < T.EP_N; i++) T.G.hearts[i] = true;
   T.goNow('desktop'); frames(5);
@@ -510,27 +503,18 @@ step('восемь сердец сливаются в одно', () => {
   desk().openMapWin(); frames(20);
   const n = T.G.win.nodesXY.find(q => q.i === T.FINALE_NODE);
   T.G.screens.desktop.tap(n.x, n.y); frames(40);
-  if (T.G.state !== 'restored') throw new Error('нет экрана ALL HEARTS RESTORED, state=' + T.G.state);
-  if (!T.MR.room) throw new Error('комната памяти не запомнилась');
+  if (T.G.state !== 'restored') throw new Error('не показан экран ALL HEARTS RESTORED: ' + T.G.state);
   frames(200);
   if (T.G.screens.restored.n !== T.CH) throw new Error('зажглось сердец: ' + T.G.screens.restored.n);
   T.G.screens.restored.next(); frames(40);
-  if (T.G.state !== 'memroom') throw new Error('нет комнаты памяти, state=' + T.G.state);
-  if (T.MR_MEM.length !== T.MR_N) throw new Error('воспоминаний: ' + T.MR_MEM.length);
-  if (T.MR_MEM[2].id !== 'MEMORY_03') throw new Error('последнее воспоминание не MEMORY_03');
-  const mr = T.G.screens.memroom, mg = mr.geom(), mp0 = mg.photos[0];
-  if (mr.hitPhoto(mg, mp0.x+4, mp0.y+4) !== 0) throw new Error('фото не кликается');
-  mr.openPhoto(0); frames(30);
-  if (T.MR.seen[0] !== 1) throw new Error('воспоминание не отмечено');
-  if (mr.open !== 0) throw new Error('фото не открылось');
-  frames(200);
-  if (mr.tOpen < 1.7) throw new Error('подпись не появилась, tOpen=' + mr.tOpen);
-  if (mr.chars < T.MR_MEM[0].say.length) throw new Error('текст не дописался');
-  mr.closePhoto(); frames(5);
-  if (mr.open >= 0) throw new Error('фото не закрылось');
-  const me = mg.exe;
-  mr.tap(me.x+2, me.y+2); frames(40);
-  if (T.G.state !== 'finale') throw new Error('ФИНАЛ.exe не запустил финал, state=' + T.G.state);
+  if (T.G.state !== 'kiss') throw new Error('не началась анимация поцелуя: ' + T.G.state);
+  if (T.G.screens.memroom) throw new Error('MEMORY ROOM не удалён');
+  const kiss = T.G.screens.kiss;
+  if (!(kiss.startGap > kiss.endGap)) throw new Error('персонажи не сближаются');
+  frames(170);
+  if (!kiss.kissed) throw new Error('момент поцелуя не проигрался');
+  frames(220);
+  if (T.G.state !== 'finale') throw new Error('после поцелуя не открылось письмо: ' + T.G.state);
   const sc = T.G.screens.finale;
   if (sc.pts.length !== 8) throw new Error('сердец в финале: ' + sc.pts.length);
   if (sc.phase !== 'fly') throw new Error('фаза=' + sc.phase);
@@ -548,15 +532,26 @@ step('письмо набирается и листается', () => {
   while (sc.phase === 'text' && guard++ < 40) { press(' '); frames(6); }
   if (sc.phase !== 'ask1') throw new Error('не дошли до первого вопроса, фаза=' + sc.phase);
 });
-step('текст письма дословный', () => {
-  const need = [
-    'Мария, ты дошла до самого конца.',
-    'Спасибо, что ты есть.',
-    'Если когда-нибудь забудешь, как сильно я тебя люблю',
-    'Люблю тебя. Просто так, без повода.'
-  ];
-  const all = T.FIN.text.join(' ');
-  for (const n of need) if (all.indexOf(n) < 0) throw new Error('нет фрагмента: ' + n.slice(0, 30));
+step('текст письма на казахском дословный', () => {
+  const expected = `Жаным, мен сені шын жүрегіммен, бар жаныммен жақсы көремін. Саған деген сезімімді сөзбен толық жеткізу маған өте қиын, өйткені сен мен үшін жай ғана сүйікті адам емессің. Сен менің жүрегіме ең жақын, ең қымбат жансың.
+
+Сен өміріме келгеннен бері көп нәрсе өзгерді. Күнделікті өмірімнің өзі басқа болып кеткендей. Сен туралы ойласам көңілім жылып, өзім байқамай күліп қоямын. Сенің бір ғана хабарыңның өзі көңіл күйімді өзгерте алады. Сенің бар екеніңнің өзі мен үшін үлкен бақыт.
+
+Мен сені тек әдемілігің үшін немесе қандай да бір қасиетің үшін жақсы көрмеймін. Мен сені өзің болғаның үшін жақсы көремін. Сенің әрбір сөзің, әрбір күлкің, әрбір кішкентай қылығың мен үшін қымбат. Сен қандай болсаң, мен үшін дәл сондай күйіңмен ерекше жансың.
+
+Күнім, сен менің жүрегімде ерекше орын алдың. Сені ойламайтын күнімді елестету қиын. Кейде өзім де байқамай сенімен байланысты бір нәрсені есіме алып, ішімнен қуанып қаламын. Өйткені сен менің өмірімнің ең жылы сезімдерінің біріне айналдың.
+
+Сен менің еркемсің, сәулемсің, гүлімсің, ботамсың. Сен менің жүрегіме жақын адамсың. Мен үшін сенің орныңды ештеңе алмастыра алмайды.
+
+Менің саған деген сезімім жай ғана уақытша сезім емес. Мен сені шын сүйемін. Сен менің өмірімдегі ең шынайы махаббатымсың. Жүрегімнің сені таңдағанын күн сайын сезінемін.
+
+Жаным, мен сені қатты жақсы көремін. Сен менің бақытымсың, қуанышымсың, жүрегімнің ең аяулысың. Сенің бар болғаның үшін, өмірімде болғаның үшін мен сені шын жүрегіммен бағалаймын.
+
+Менің сүйіктім, мен сені жақсы көремін. Өте қатты.`;
+  const normalize = s => s.replace(/\s+/g, ' ').trim();
+  if (normalize(T.FIN.text.join(' ')) !== normalize(expected)) throw new Error('мәтін берілген хатпен сәйкес емес');
+  const compact = expected.replace(/\s/g, '');
+  if (T.safeLine(compact).length !== compact.length) throw new Error('шрифтте казах әріптері жоқ');
   if (T.FIN.title !== 'ПИСЬМО ДЛЯ САМОГО ДОРОГОГО ЧЕЛОВЕКА') throw new Error('заголовок изменён');
   if (T.FIN.sign !== 'TO INFINITY AND BEYOND') throw new Error('подпись изменена');
   if (T.FIN.ask1 !== 'Ты останешься со мной?') throw new Error('первый вопрос изменён');
@@ -612,6 +607,21 @@ step('очень узкий 200x600', () => { resize(200, 600); frames(20); ente
 console.log('— прочее —');
 step('награда -> диалог -> рабочий стол', () => { T.G.hearts = newFilled(0); T.winLevel(2); frames(60); press(' '); frames(5); skipDialog(40); frames(60); if (T.G.state !== 'desktop') throw new Error('state=' + T.G.state); });
 step('сохранение прогресса', () => { T.G.hearts = newFilled(2); T.winLevel(0); frames(5); if (!sandbox.localStorage.getItem('printILY3')) throw new Error('нет записи'); });
+step('старый прогресс сдвигается после удаления бонуса', () => {
+  const prior = T.G.hearts.slice();
+  const stored = sandbox.localStorage.getItem('printILY3');
+  const old = new Array(NH_N + 1).fill(false);
+  old[0] = true; old[9] = true; old[10] = true; old[11] = false; old[12] = true;
+  sandbox.localStorage.setItem('printILY3', JSON.stringify({h: old}));
+  T.load();
+  if (T.G.hearts.length !== NH_N) throw new Error('размер=' + T.G.hearts.length);
+  if (!T.G.hearts[0] || !T.G.hearts[9] || T.G.hearts[10] || !T.G.hearts[11]) throw new Error('индексы не мигрировали');
+  const migrated = JSON.parse(sandbox.localStorage.getItem('printILY3'));
+  if (migrated.h.length !== NH_N) throw new Error('миграция не сохранена');
+  T.G.hearts = prior;
+  if (stored === null) sandbox.localStorage.removeItem('printILY3');
+  else sandbox.localStorage.setItem('printILY3', stored);
+});
 step('ввод пальцем', () => { enterLevel(T.EP_N); tap(100, 100); frames(10); tapUp(); frames(5); });
 step('русская раскладка WASD', () => { enterLevel(T.EP_N); ['ф','в','ц','ы'].forEach(k => { keyDown(k); frames(3); keyUp(k); }); frames(5); });
 step('escape из уровня', () => { enterLevel(T.EP_N); press('Escape'); frames(60); if (T.G.state !== 'desktop') throw new Error('state=' + T.G.state); });

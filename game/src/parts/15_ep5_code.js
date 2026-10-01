@@ -53,7 +53,7 @@ const EP5 = {
     ctx.fillRect(0, 0, W, H);
     if(over > 0 && FXQ > .5){
       for(let i=0;i<10;i++){
-        const x = ((i*37 + t*40) % W), y = H - ((i*53 + t*90) % H);
+        const x = ((i*37 + t*40) % W), y = H - 22 - ((i*53 + t*90) % (H-28));
         ctx.globalAlpha = over*.5;
         heart(x, y, 1, P.pink);
         ctx.globalAlpha = 1;
@@ -61,17 +61,18 @@ const EP5 = {
     }
     hudTop({icon:'code', title:'ИСПРАВЛЕНИЕ КОДА', col:'#8ce99a', h:20, right:this.done.filter(Boolean).length+' / '+COD.tasks.length});
     epProgress(this.done.filter(Boolean).length, COD.tasks.length, W/2-13, 22, '#8ce99a');
-    // окно кода
-    const cy = 36, ch = 62;
+    // окно кода (компактнее на низких экранах)
+    const small = H < 320;
+    const cy = small ? 28 : 36, ch = small ? 40 : 62;
     glassPanel(6, cy, W-12, ch, {col:'#2a5a3a', title:'love_os.js'});
     this.codeLines().forEach((l,i)=>{
-      const y = cy+18+i*11;
+      const y = cy+(small?12:18)+i*(small?8:11);
       text(String(i+1), 10, y, {sc:1, color:'#2f5a42'});
       const isCur = (i === this.step);
       const col = this.done[i] ? '#8ce99a' : (isCur ? '#ffd166' : '#4a7a5f');
       text(l, 20, y, {sc:1, color: col});
     });
-    let yy = cy + ch + 6;
+    let yy = cy + ch + 4;
     // ошибка
     if(this.msg > 0){
       ctx.globalAlpha = clamp(this.msg*1.6, 0, 1);
@@ -85,29 +86,36 @@ const EP5 = {
         .forEach((l,i)=>text(l, W/2, yy+i*10, {sc:1, align:'center', color:'#9b8ac0'}));
       yy += 22;
     }
-    // варианты
+    // варианты (убедимся что не вылезают за нижний край)
     this.optRects = [];
-    const y = Math.max(yy, Math.round(H*0.62));
+    const bh = small ? 10 : 16;
+    // Зарезервируем место внизу: вторая строка кнопок + запас на текст 16px + место для девушки
+    const reserve = bh + 24 + (small ? 18 : 34);
+    let y = Math.min(Math.max(yy, Math.round(H*(small?0.46:0.62))), H - reserve - bh);
     if(q){
       const bw = Math.floor((W-20)/3);
       for(let i=0;i<3;i++){
         const x = 6+i*(bw+4);
         const sel = this.pick === i, good = q.ok === i, bad = this.pick === i && q.ok !== i;
-        this.optRects.push({x:x, y:y, w:bw, h:16, i:i});
-        glassBtn(x, y, bw, 16, q.opts[i], {press:sel, color: bad?'#ff6b6b':(good&&this.done[this.step]?'#8ce99a':'#3a2560')});
+        this.optRects.push({x:x, y:y, w:bw, h:bh, i:i});
+        glassBtn(x, y, bw, bh, q.opts[i], {press:sel, color: bad?'#ff6b6b':(good&&this.done[this.step]?'#8ce99a':'#3a2560')});
       }
-      this.rOk = {x:6, y:y+20, w:Math.floor((W-16)/2), h:16};
-      glassBtn(6, y+20, Math.floor((W-16)/2), 16, 'ВСТАВИТЬ', {press:this.hovB===0, color: this.pick>=0?'#8ce99a':'#3a2560', dis:this.pick<0});
-      this.rSkip = {x:6+Math.floor((W-16)/2)+4, y:y+20, w:Math.floor((W-16)/2), h:16};
-      glassBtn(this.rSkip.x, y+20, this.rSkip.w, 16, 'ДАЛЬШЕ', {press:this.hovB===1, color:UI.text, dis:!this.done[this.step]});
+      const by2 = y+bh+(small?2:4);
+      this.rOk = {x:6, y:by2, w:Math.floor((W-16)/2), h:bh};
+      glassBtn(6, by2, Math.floor((W-16)/2), bh, 'ВСТАВИТЬ', {press:this.hovB===0, color: this.pick>=0?'#8ce99a':'#3a2560', dis:this.pick<0});
+      this.rSkip = {x:6+Math.floor((W-16)/2)+4, y:by2, w:Math.floor((W-16)/2), h:bh};
+      glassBtn(this.rSkip.x, by2, this.rSkip.w, bh, 'ДАЛЬШЕ', {press:this.hovB===1, color:UI.text, dis:!this.done[this.step]});
     }
     if(!q) this.rOk = this.rSkip = null;
     // ошибки компиляции
     for(let i=0;i<COD.maxBad;i++) heart(W-6-(COD.maxBad-i)*9, 32, 1, i < COD.maxBad-this.bad ? P.red : '#1d3a2a');
     text('ОШИБКИ', W-6, 42, {sc:1, align:'right', color:'#2f5a42'});
-    // она за терминалом
-    drawGirl(16, H-14, CONFIG.cHer, 2, 0);
-    text('Она чинит код.', 36, H-21, {sc:1, color:'#4a7a5f'});
+    // она за терминалом (на маленьких экранах совсем крошечная, чтобы не вылезать)
+    const gsc = small ? 0.8 : 2;
+    const gy = small ? H-14 : H-14;
+    if(!small) drawGirl(16, gy, CONFIG.cHer, gsc, 0);
+    else drawGirl(16, H-14, CONFIG.cHer, gsc, 0);
+    if(!small) text('Она чинит код.', 36, gy-4, {sc:1, color:'#4a7a5f'});
     vignette(0.5); crtOverlay(t);
   },
   codeLines(){

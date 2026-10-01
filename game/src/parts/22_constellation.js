@@ -313,12 +313,24 @@ ARCH_LEVELS.stars = {
       if(hovered && !this.done){
         ringPix(p[0], p[1], 6, CONFIG.P.pink, 1);
       }
-      // подсказка-подсветка после трёх ошибок на шаге
+      // подсказка: после 3 ошибок лёгкая подсветка, после 4 — явная стрелка куда тыкать
       if(isNeed && this.stepErr >= 3 && !this.done){
         const k = 0.5 + 0.5*Math.sin(t*5);
         ringPix(p[0], p[1], 7 + k*2, CONFIG.P.gold, 1);
         ctx.globalAlpha = 0.4 + 0.3*k;
         text('?', p[0], p[1]-11, {sc:1, align:'center', color:CONFIG.P.gold});
+        ctx.globalAlpha = 1;
+      }
+      if(isNeed && this.stepErr >= 4 && !this.done){
+        const k = 0.7 + 0.3*Math.sin(t*4);
+        ctx.globalAlpha = k;
+        // мигающая стрелка вниз на нужную звезду
+        glowAt(p[0], p[1]-14, 14, CONFIG.P.gold, .6);
+        ctx.fillStyle = CONFIG.P.gold;
+        const ax = Math.round(p[0]), ay = Math.round(p[1]-10);
+        for(let i=0;i<5;i++) ctx.fillRect(ax - 2 + i, ay - 8 + i, 5 - i*2, 1);
+        ctx.fillRect(ax, ay - 3, 1, 5);
+        text('СЮДА', p[0], p[1]-22, {sc:1, align:'center', color:CONFIG.P.gold});
         ctx.globalAlpha = 1;
       }
     }
@@ -402,12 +414,16 @@ ARCH_LEVELS.stars = {
   d_btns(){
     const P = CONFIG.P;
     this.btns = [];
-    const y2 = H-38, y1 = H-20, h = 16;
+    // если кнопки скрыты — не рисуем их и не добавляем зоны
+    if(G.screens.arlevel.showArBar === false) return;
+    // переносим кнопки выше чтобы не закрывали звёзды
+    const y2 = H-54, y1 = H-36, h = 14;
     const items = [
       {t:'НАЗАД', f:()=>this.undo(), off:!this.path.length},
       {t:'ЛИНИИ', f:()=>{ this.lines = !this.lines; }},
       {t: this.zoom>1?'X1':'X1.5', f:()=>{ this.zoom = this.zoom>1?1:1.5; this.clampPan(); }},
-      {t:'ЗАНОВО', f:()=>this.restart()}
+      {t:'ЗАНОВО', f:()=>this.restart()},
+      {t:'КНОПКИ', f:()=>{ G.screens.arlevel.showArBar = false; Snd.blip(); }}
     ];
     const bw = Math.floor((W-8-(items.length-1)*3)/items.length);
     items.forEach((it,i)=>{

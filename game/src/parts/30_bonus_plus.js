@@ -1,5 +1,5 @@
 /* ==========================================================================
-   ЧАСТЬ 30 · ВТОРАЯ ВОЛНА — новые механики и графика для 8 бонусных игр
+   ЧАСТЬ 30 · ВТОРАЯ ВОЛНА — новые механики и графика для 7 бонусных игр
    Ничего не ломаем: оборачиваем enter/update/draw и добавляем своё состояние
    с префиксом bp_. Все новые поля опциональны — если их нет, игра работает
    как раньше.
@@ -8,9 +8,8 @@
    7 ДОЖДЬ      — ЛИВЕНЬ + МОЛНИЯ (магнит на 3 секунды)
    8 ЛАБИРИНТ   — СВЕТЛЯЧОК (отстающий огонёк, подсказка к цели)
    9 НЕ ПРОМОКНИ— РЫВОК (рывок + инерция, каденция 2.6 с)
-   10 МЕМОРИ    — ПОДГЛЯНУТЬ (показать все карты на 0.8 с)
-   11 КОД        — КОНСОЛЬ (живой лог режима и ошибок)
-   12 ПЕЧАТЬ     — ЛЕНТА (бумага с текстом, разворот в финале)
+   10 КОД        — КОНСОЛЬ (живой лог режима и ошибок)
+   11 ПЕЧАТЬ     — ЛЕНТА (бумага с текстом, разворот в финале)
    ========================================================================== */
 
 const BP = {};
@@ -320,7 +319,7 @@ bpWrap(L, 'draw', function(){
 })();
 
 /* ==========================================================================
-   9 · НЕ ПРОМОКНИ — РЫВОК
+   9 · РАДУЖНЫЙ ЗОНТ — защитим сердце от дождя
    ========================================================================== */
 (function(){
 const L = LEVELS[9]; if(!L) return;
@@ -381,80 +380,10 @@ bpWrap(L, 'draw', function(){
 })();
 
 /* ==========================================================================
-   10 · МЕМОРИ — ПОДГЛЯНУТЬ
+   10 · КОД — КОНСОЛЬ
    ========================================================================== */
 (function(){
-const L = LEVELS[10]; if(!L || !L.cards) return;
-BP.memo = L;
-bpFields(L, {bpPeek:0, bpPeekCd:0, bpForced:[]});
-const _u = L.update;
-L.update = function(dt){
-  const before = this.found;
-  _u.call(this, dt);
-  if(this.found > (before || 0)){
-    const c = this.cards && this.cards[this.sel];
-    const x = c ? c.x + c.cs/2 : W/2, y = c ? c.y : H*0.5;
-    popText(x, y-10, 'ПАРА!', CONFIG.P.green);
-    fx(x, y, 10, CONFIG.P.green, 70, .5, {g:30});
-    ring(x, y, CONFIG.P.green, 26, .4);
-    Snd.coin();
-  }
-  if(this.bpPeekCd > 0) this.bpPeekCd -= dt;
-  if(this.bpPeek > 0){
-    this.bpPeek -= dt;
-    for(const c of this.cards){
-      if(!c.open && !c.done){ c.open = true; this.bpForced.push(c); }
-    }
-    if(this.bpPeek <= 0){
-      for(const c of this.bpForced) c.open = false;
-      this.bpForced.length = 0;
-    }
-  }
-};
-L.bpDoPeek = function(){
-  if(this.bpPeekCd > 0 || this.bpPeek > 0) return;
-  this.bpPeek = 0.8; this.bpPeekCd = 4;
-  Snd.blip();
-  for(const c of this.cards) c.hintFlash = Math.max(c.hintFlash, 0.3);
-};
-const _t = L.tap;
-L.tap = function(x, y){
-  const b = this.bpPeekBtn();
-  if(b && x>=b.x && x<=b.x+b.w && y>=b.y && y<=b.y+b.h){ this.bpDoPeek(); return; }
-  _t.call(this, x, y);
-};
-L.bpPeekBtn = function(){
-  const w = 70, h = 13;
-  return {x:4, y:H-h-4, w:w, h:h};
-};
-const _k = L.key;
-L.key = function(k){
-  if(k === 'p' || k === 'P' || k === 'з' || k === 'З'){ this.bpDoPeek(); return; }
-  _k.call(this, k);
-};
-bpWrap(L, 'draw', function(){
-  const P = CONFIG.P;
-  if(this.bpPeek > 0){
-    ctx.globalAlpha = .12 + .08*Math.sin(this.t*10);
-    ctx.fillStyle = P.sky; ctx.fillRect(0, 0, W, H);
-    ctx.globalAlpha = 1;
-  }
-  const b = this.bpPeekBtn();
-  const ready = this.bpPeekCd <= 0 && this.bpPeek <= 0;
-  ctx.fillStyle = '#120a24'; ctx.fillRect(b.x-1, b.y-1, b.w+2, b.h+2);
-  ctx.fillStyle = ready ? 'rgba(140,233,154,.30)' : 'rgba(107,79,160,.22)';
-  ctx.fillRect(b.x, b.y, b.w, b.h);
-  const lab = this.bpPeek > 0 ? 'СМОТРИ' : (ready ? 'ПОДГЛЯНУТЬ' : Math.ceil(this.bpPeekCd)+'с');
-  text(lab, b.x+b.w/2, b.y+3, {sc:fitSc(lab, b.w-4, 1), align:'center', color: ready ? CONFIG.P.green : CONFIG.P.dim});
-  if(ready && FXQ > .4) glowAt(b.x+b.w/2, b.y+b.h/2, 16, CONFIG.P.green, .10);
-});
-})();
-
-/* ==========================================================================
-   11 · КОД — КОНСОЛЬ
-   ========================================================================== */
-(function(){
-const L = LEVELS[11]; if(!L) return;
+const L = LEVELS[10]; if(!L) return;
 BP.code = L;
 bpFields(L, {bpScan:0, bpErrT:0});
 bpFields(L, {bpLog:''});
@@ -484,7 +413,7 @@ bpWrap(L, 'draw', function(){
   ctx.fillRect(Math.round(sx), y+1, 24, h-2);
   const mode = (this.mode||'?').toUpperCase();
   const lg = (this.bpLog || mode).toUpperCase();
-  text('>'+lg.slice(0, Math.max(1, Math.floor((W-60)/6))), 4, y-1,
+  text('>'+lg.slice(0, Math.max(1, Math.floor((W-60)/6))), 4, y-12,
        {sc:1, color:'rgba(140,233,154,.75)'});
   if(this.bpErrT > 0){
     const a = clamp(this.bpErrT, 0, 1);
@@ -498,10 +427,10 @@ bpWrap(L, 'draw', function(){
 })();
 
 /* ==========================================================================
-   12 · ПЕЧАТЬ — ЛЕНТА БУМАГИ
+   11 · ПЕЧАТЬ — ЛЕНТА БУМАГИ
    ========================================================================== */
 (function(){
-const L = LEVELS[12]; if(!L || !L.phrase) return;
+const L = LEVELS[11]; if(!L || !L.phrase) return;
 BP.print = L;
 bpFields(L, {bpWave:0, bpLastI:0});
 bpWrap(L, 'update', function(){

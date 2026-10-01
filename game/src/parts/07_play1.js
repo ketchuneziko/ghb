@@ -545,10 +545,11 @@ L7.draw = function(){
 (function(){
 L1.enter = function(){
   this.hintY = 22;
-  this.px = W/2; this.py = H-24; this.items=[]; this.spawn=0.5; this.t=0;
-  this.caught=0; this.need=24; this.lives=3; this.miss=0;
+  this.px = W/2; this.py = H-24; this.items=[]; this.spawn=0.4; this.t=0;
+  this.caught=0; this.need=32; this.lives=2; this.miss=0;
   this.combo=0; this.best=0; this.windy=0; this.inv=0; this.pw=0; this.pwT=0; this.pwMax=0;
   this.groundH = H-12;
+  this.lightningT = rnd(4,7);
 };
 L1.update = function(dt){
   this.t += dt;
@@ -559,21 +560,30 @@ L1.update = function(dt){
   if(key.right) this.px += sp;
   if(ptr.down){ this.px = lerp(this.px, ptr.x, 0.30); }
   this.px = clamp(this.px, 14, W-14);
-  // ветер во второй половине
-  const half = this.caught >= Math.round(this.need*0.5);
-  if(half){
-    const w = Math.sin(this.t*0.9)*26 + Math.sin(this.t*0.37)*14;
-    this.windy = w;
+  // ветер почти с самого начала, усиливается к концу
+  const prog = this.caught/this.need;
+  const w = (Math.sin(this.t*0.95)*30 + Math.sin(this.t*0.4)*20) * (0.3 + prog*0.9);
+  this.windy = w;
+  if(prog > 0.3){
     this.extra = (this.extra||0) - dt;
     if(this.extra <= 0){
-      this.extra = 0.55;
-      this.items.push(this.spawnItem(0.28));
+      this.extra = Math.max(0.3, 0.55 - prog*0.2);
+      this.items.push(this.spawnItem(Math.min(0.45, 0.20 + prog*0.3)));
     }
-  } else this.windy = 0;
+  }
+  // молния: иногда временно ослепляет и добавляет туч
+  if(this.lightningT !== undefined){
+    this.lightningT -= dt;
+    if(this.lightningT <= 0){
+      this.lightningT = rnd(4, 9);
+      flashScreen('#cfe0ff', .35); shake(3);
+      for(let i=0;i<3;i++) this.items.push(this.spawnItem(0.5, true));
+    }
+  }
   this.spawn -= dt;
   if(this.spawn<=0){
-    this.spawn = Math.max(0.20, 0.66 - this.t*0.010);
-    this.items.push(this.spawnItem());
+    this.spawn = Math.max(0.18, 0.58 - this.t*0.012 - prog*0.1);
+    this.items.push(this.spawnItem(Math.min(0.38, 0.08 + this.t*0.010 + prog*0.15)));
   }
   const basketY = this.py-34;
   for(const it of this.items){
@@ -638,11 +648,11 @@ L1.spawnItem = function(badP, forceGood){
   let kind = 'heart', bad = false, power = null, gold = false;
   if(!forceGood){
     const r = Math.random();
-    if(t > 4 && r < Math.min(0.26, 0.09+t*0.009)){ kind = 'cloud'; bad = true; }
-    else if(r < 0.34){ kind = 'power'; power = pickPower(); }
-    else if(r < 0.42){ kind = 'gold'; gold = true; }
+    if((t > 2 && r < (badP || Math.min(0.35, 0.09+t*0.010))) || badP > 0.2){ kind = 'cloud'; bad = true; }
+    else if(r < 0.20){ kind = 'power'; power = pickPower(); }
+    else if(r < 0.28){ kind = 'gold'; gold = true; }
   }
-  return {x:rnd(10,W-10), y:-8, vy:rnd(46,70)+t*2.0, bad:bad, kind:kind, power:power, sw:rnd(0,6), rot:0};
+  return {x:rnd(10,W-10), y:-8, vy:rnd(60,95)+t*2.8, bad:bad, kind:kind, power:power, sw:rnd(0,6), rot:0};
 };
 L1.draw = function(){
   const P = CONFIG.P;

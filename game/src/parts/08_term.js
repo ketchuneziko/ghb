@@ -99,7 +99,15 @@ function termExec(win, raw){
   if(!q){ return; }
   const files = G.screens.desktop.icons.map(i=>i.name);
   if(q === 'help' || q === 'помощь' || q === '?'){
-    termPrint(win, 'Доступные команды: help — справка, hearts — статус сердечек, love — запустить магию.', '#ffd166');
+    termPrint(win, 'Доступные команды:', '#ffd166');
+    termPrint(win, '  help / помощь  — эта справка', '#a08cc0');
+    termPrint(win, '  ls / dir / файлы — список файлов', '#a08cc0');
+    termPrint(win, '  open <файл>   — запустить файл', '#a08cc0');
+    termPrint(win, '  open archive  — открыть архив секретов', '#a08cc0');
+    termPrint(win, '  hearts / сердца — статус сердечек', '#a08cc0');
+    termPrint(win, '  whoami, date, love, sudo love, matrix', '#a08cc0');
+    termPrint(win, '  color <цвет>, crt, clear, exit', '#a08cc0');
+    termPrint(win, '  music — включи музыку, secret — пасхалка, shake — тряска', '#a08cc0');
     return;
   }
   if(q === 'ls' || q === 'dir' || q === 'файлы'){
@@ -177,6 +185,33 @@ function termExec(win, raw){
   if(q === 'crt' || q === 'эффекты'){
     G.crt = G.crt ? 0 : 1;
     termPrint(win, 'Эффекты экрана: '+(G.crt?'ВКЛ':'ВЫКЛ'), P.gold);
+    return;
+  }
+  if(q === 'shake' || q === 'тряска'){
+    G.shakeOff = !G.shakeOff;
+    termPrint(win, 'Тряска экрана: '+(G.shakeOff?'ВЫКЛ':'ВКЛ'), P.gold);
+    return;
+  }
+  if(q === 'music' || q === 'музыка'){
+    if(window.musicToggle) window.musicToggle();
+    termPrint(win, 'Музыка переключена', P.gold);
+    return;
+  }
+  if(q === 'secret' || q === 'пасхалка'){
+    termPrint(win, 'Секрет: я люблю тебя больше всех звёзд на небе.', P.pink);
+    termPrint(win, 'И чем все сердца в этой игре. И чем все слова на всех языках.', P.pink);
+    spawnLove(20); Snd.coin();
+    return;
+  }
+  if(q === 'archive' || q === 'архив' || q === 'open archive' || q === 'открыть архив'){
+    termPrint(win, 'Открываю архив секретов...', P.gold);
+    Win.close();
+    openArchiveWin();
+    return;
+  }
+  if(q === 'restart' || q === 'перезапуск'){
+    termPrint(win, 'Перезапуск...', P.gold);
+    location.reload();
     return;
   }
   termPrint(win, q+': команда не найдена', P.red);
