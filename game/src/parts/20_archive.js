@@ -219,7 +219,7 @@ function cardInfoAr(i){
 
 /* --- экран уровня архива --- */
 G.screens.arlevel = {
-  enter(){ this.t = 0; this.msgT = 0; _arT0 = performance.now(); this.showArBar = true; this.btnToggle = true;},
+  enter(){ this.t = 0; this.msgT = 0; this.zones = []; _arT0 = performance.now(); this.showArBar = true; this.btnToggle = true;},
   update(dt){
     this.t += dt;
     const lv = arLevel();
@@ -262,7 +262,7 @@ G.screens.arlevel = {
   },
   key(k){
     const lv = arLevel();
-    // кнопка H/Р скрывает нижние кнопки чтобы не мешали видеть звёзды
+    // кнопка H/Р скрывает подсказку и выход, не затрагивая кнопки уровня
     if(k==='h'||k==='H'||k==='р'||k==='Р'){
       this.showArBar = !this.showArBar;
       this.zones = [];
@@ -284,6 +284,7 @@ G.screens.arlevel = {
   },
   tap(x,y){
     const lv = arLevel();
+    const zones = (lv && lv.zones) || this.zones || [];
     // маленькая кнопка в углу чтобы вернуть кнопки обратно если скрыты
     if(this.showArBar === false){
       if(x>4 && x<52 && y>H-24 && y<H-8){
@@ -293,11 +294,11 @@ G.screens.arlevel = {
       }
     }
     // кнопки подсказки/выхода, если игра их нарисовала
-    if(this.showArBar && this.zones && this.zones.length){
-      for(const z of this.zones){
+    if(this.showArBar && zones.length){
+      for(const z of zones){
         if(x>=z.x && x<=z.x+z.w && y>=z.y && y<=z.y+z.h){
           if(z.t === 'ВЫЙТИ'){
-            G.dialog = null; ptr.down = false; this.hintT = 0; this.zones = [];
+            G.dialog = null; ptr.down = false; this.hintT = 0; this.zones = []; if(lv) lv.zones = [];
             if(lv && lv.exit) lv.exit();
             goNow('desktop'); G.openArch = true;
             return;
@@ -624,7 +625,7 @@ function arBar(y, withExit){
   for(const it of items){
     const on = ptr.x>it.x && ptr.x<it.x+it.w && ptr.y>y && ptr.y<y+h;
     drawBtn(it.x, y, it.w, h, it.t, {press:on, color: on?P.gold:UI.text});
-    out.push({x:it.x, y:y, w:it.w, h:h, f:it.f});
+    out.push({x:it.x, y:y, w:it.w, h:h, t:it.t, f:it.f});
   }
   return out;
 }

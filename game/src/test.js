@@ -1161,6 +1161,66 @@ step('шифр: подсказки выдаются по одной и не по
   T.arHint(0);
   if (!scr.hintText) throw new Error('четвёртая подсказка должна предупредить');
 });
+step('шифр: нижние кнопки работают во всех трёх слоях', () => {
+  const L = arStart(0);
+  const center = b => { if(!b) throw new Error('кнопка не найдена'); L.tap(b.x+b.w/2,b.y+b.h/2); };
+  L.draw();
+  center(L.layout.bottom.find(b=>b.id==='pos2'));
+  if(L.sel1 !== 1) throw new Error('кнопка П2 не выбрала позицию');
+  L.draw();
+  center(L.layout.bottom.find(b=>b.ch===L.l1cells()[1].ch));
+  if(!L.ans[1] || L.sel1 !== 4) throw new Error('кнопка буквы не приняла ответ/не выбрала П5');
+  L.draw();
+  center(L.layout.bottom.find(b=>b.id==='pos5'));
+  L.draw();
+  center(L.layout.bottom.find(b=>b.ch===L.l1cells()[4].ch));
+  if(!L.ans[4]) throw new Error('кнопка буквы не решила П5');
+  L.draw(); center(L.layout.bottom.find(b=>b.id==='next'));
+  if(L.scene !== 'l2') throw new Error('ДАЛЕЕ не открыла слой 2');
+  L.draw(); center(L.layout.bottom.find(b=>b.id==='row2'));
+  if(L.flips[1] !== 1) throw new Error('нижняя кнопка ряда не перевернула строку');
+  L.draw(); center(L.layout.bottom.find(b=>b.id==='next'));
+  if(L.scene !== 'l3') throw new Error('ДАЛЕЕ не открыла слой 3');
+  L.draw(); center(L.layout.bottom.find(b=>b.id==='plus'));
+  if(L.dial !== 1) throw new Error('+ не сдвинул шкалу');
+  L.draw(); center(L.layout.bottom.find(b=>b.id==='minus'));
+  if(L.dial !== 0) throw new Error('- не сдвинул шкалу обратно');
+  L.draw(); center(L.layout.bottom.find(b=>b.id==='check'));
+  if(L.scene !== 'win') throw new Error('ПРОВ. не проверила собранную фразу');
+});
+step('шифр: нижняя панель подсказки и выхода нажимается', () => {
+  const L = arStart(0), scr = T.G.screens.arlevel;
+  scr.hintStep = 0;
+  L.draw();
+  const hint = L.zones.find(z=>z.t==='ПОДСКАЗКА');
+  if(!hint) throw new Error('кнопка подсказки не нарисована');
+  scr.tap(hint.x+hint.w/2,hint.y+hint.h/2);
+  if(scr.hintStep !== 1) throw new Error('кнопка подсказки не сработала');
+  L.draw();
+  const exit = L.zones.find(z=>z.t==='ВЫЙТИ');
+  if(!exit) throw new Error('кнопка выхода не нарисована');
+  scr.tap(exit.x+exit.w/2,exit.y+exit.h/2);
+  if(T.G.state !== 'desktop') throw new Error('кнопка выхода не вернула на рабочий стол');
+});
+step('шифр: нижние кнопки помещаются на узком и широком экране', () => {
+  const prevW=T.W(), prevH=T.H();
+  for(const [w,h] of [[200,240],[320,240],[390,844],[800,450]]){
+    resize(w,h);
+    for(const scene of ['l1','l2','l3']){
+      const L=arStart(0);
+      if(scene==='l2') L.setScene('l2');
+      if(scene==='l3') L.setScene('l3');
+      if(scene==='l2') L.flips=[0,1,0];
+      L.draw();
+      if(!L.layout.bottom.length) throw new Error(scene+': нет кнопок при '+w+'x'+h);
+      for(const b of L.layout.bottom){
+        if(b.x<0 || b.x+b.w>T.W() || b.y<0 || b.y+b.h>T.H()-22)
+          throw new Error(scene+': кнопка '+b.id+' ('+b.x+','+b.y+' '+b.w+'x'+b.h+') вне нижней панели при '+w+'x'+h+'; логика '+T.W()+'x'+T.H());
+      }
+    }
+  }
+  resize(prevW,prevH);
+});
 
 textFit('текст/панели', [[390, 844], [800, 450], [320, 240], [240, 320]]);
 
