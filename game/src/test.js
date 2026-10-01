@@ -833,6 +833,23 @@ step('созвездие: зум и линии переключаются', () =
   L.k_sky('z');
   if(L.zoom !== 1) throw new Error('зум не вернулся');
 });
+step('созвездие: сердце центрировано и все звёзды в поле', () => {
+  const prevW=T.W(), prevH=T.H();
+  for(const [vw,vh] of [[200,240],[320,240],[390,844],[800,450]]){
+    resize(vw,vh);
+    const L=arStart(1), r=L.rect(), q=L.sq();
+    if(q.sx!==q.sy) throw new Error('карта искажена при '+vw+'x'+vh);
+    const center=L.toXY(.5,.5);
+    if(Math.abs(center[0]-(r.x+r.w/2))>1 || Math.abs(center[1]-(r.y+r.h/2))>1)
+      throw new Error('центр карты смещён при '+vw+'x'+vh);
+    for(const st of L.stars()){
+      const p=L.toXY(st.nx,st.ny);
+      if(p[0]<r.x+12 || p[0]>r.x+r.w-12 || p[1]<r.y+12 || p[1]>r.y+r.h-12)
+        throw new Error('звезда обрезана при '+vw+'x'+vh+': '+p.join(','));
+    }
+  }
+  resize(prevW,prevH);
+});
 
 console.log('— АРХИВ 03: МУЗЫКА ВОСПОМИНАНИЙ —');
 function arListen(L){
