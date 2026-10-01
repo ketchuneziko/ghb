@@ -219,7 +219,7 @@ function cardInfoAr(i){
 
 /* --- экран уровня архива --- */
 G.screens.arlevel = {
-  enter(){ this.t = 0; this.msgT = 0; _arT0 = performance.now(); },
+  enter(){ this.t = 0; this.msgT = 0; this.zones = []; _arT0 = performance.now(); this.showArBar = true; this.btnToggle = true;},
   update(dt){
     this.t += dt;
     const lv = arLevel();
@@ -233,6 +233,14 @@ G.screens.arlevel = {
     if(lv && lv.draw) lv.draw();
     drawFx();
     drawHeartTrail();
+    // маленькая кнопка в углу чтобы показать кнопки когда они скрыты
+    if(this.showArBar === false){
+      ctx.fillStyle = 'rgba(9,5,20,.85)';
+      ctx.fillRect(4, H-24, 48, 16);
+      ctx.fillStyle = '#8ce99a';
+      ctx.fillRect(4, H-24, 48, 1);
+      text('КНОПКИ', 28, H-22, {sc:1, align:'center', color:'#cfe0ff'});
+    }
     // подсказка
     if(this.hintT > 0){
       const s = this.hintText || '';
@@ -254,17 +262,49 @@ G.screens.arlevel = {
   },
   key(k){
     const lv = arLevel();
-    if(k==='Escape'){ go('desktop'); G.openArch = true; return; }
+    // кнопка H/Р скрывает подсказку и выход, не затрагивая кнопки уровня
+    if(k==='h'||k==='H'||k==='р'||k==='Р'){
+      this.showArBar = !this.showArBar;
+      this.zones = [];
+      return;
+    }
+    if(k==='Escape'){
+      // сбрасываем все состояния чтобы не фризило при выходе
+      G.dialog = null;
+      ptr.down = false; ptr.x = W/2; ptr.y = H/2; ptr.dx = 0; ptr.dy = 0;
+      this.hintT = 0; this.zones = [];
+      if(lv && lv.exit) lv.exit();
+      goNow('desktop');
+      G.openArch = true;
+      return;
+    }
     if(k===' '||k==='Enter' && this.hintT>0){ this.hintT = 0; return; }
     if(lv && lv.key) lv.key(k);
     if(k==='r'||k==='R'||k==='к'||k==='К'){ if(lv && lv.enter) lv.enter(); }
   },
   tap(x,y){
     const lv = arLevel();
+    const zones = (lv && lv.zones) || this.zones || [];
+    // маленькая кнопка в углу чтобы вернуть кнопки обратно если скрыты
+    if(this.showArBar === false){
+      if(x>4 && x<52 && y>H-24 && y<H-8){
+        this.showArBar = true;
+        Snd.blip();
+        return;
+      }
+    }
     // кнопки подсказки/выхода, если игра их нарисовала
-    if(this.zones && this.zones.length){
-      for(const z of this.zones){
-        if(x>=z.x && x<=z.x+z.w && y>=z.y && y<=z.y+z.h){ z.f(); return; }
+    if(this.showArBar && zones.length){
+      for(const z of zones){
+        if(x>=z.x && x<=z.x+z.w && y>=z.y && y<=z.y+z.h){
+          if(z.t === 'ВЫЙТИ'){
+            G.dialog = null; ptr.down = false; this.hintT = 0; this.zones = []; if(lv) lv.zones = [];
+            if(lv && lv.exit) lv.exit();
+            goNow('desktop'); G.openArch = true;
+            return;
+          }
+          z.f(); return;
+        }
       }
     }
     if(lv && lv.tap) lv.tap(x,y);
@@ -577,6 +617,7 @@ function arResetHints(){ G.screens.arlevel.hintStep = 0; G.screens.arlevel.hintT
 /* --- кнопки, общие для всех игр архива: ПОДСКАЗКА / ВЫХОД --- */
 function arBar(y, withExit){
   const P = CONFIG.P, h = 16;
+  if(y + h > H) y = H - h;
   const items = [];
   items.push({x:4, w:Math.floor((W-8-4)/2), t:'ПОДСКАЗКА', f:()=>arHint(0), n:3});
   if(withExit) items.push({x:4+items[0].w+4, w:W-8-items[0].w-4, t:'ВЫЙТИ', f:()=>{ go('desktop'); G.openArch = true; }});
@@ -584,7 +625,7 @@ function arBar(y, withExit){
   for(const it of items){
     const on = ptr.x>it.x && ptr.x<it.x+it.w && ptr.y>y && ptr.y<y+h;
     drawBtn(it.x, y, it.w, h, it.t, {press:on, color: on?P.gold:UI.text});
-    out.push({x:it.x, y:y, w:it.w, h:h, f:it.f});
+    out.push({x:it.x, y:y, w:it.w, h:h, t:it.t, f:it.f});
   }
   return out;
 }

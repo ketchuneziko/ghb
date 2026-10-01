@@ -415,7 +415,7 @@ function shake(mag){ G.shake = Math.max(G.shake, mag); }
    ИГРА: состояние
    ========================================================================== */
 const EP_N = 5;                 // эпизоды сюжета (главная линия)
-const AR_N = 8;                 // бонусные мини-игры (аркада)
+const AR_N = 7;                 // бонусные мини-игры (аркада)
 const NH = EP_N + AR_N;         // всего узлов прогресса
 const CH = 8;                   // сердец в главной линии (2+1+1+2+2)
 const HEP = {1:1, 2:1, 3:2, 4:2, 5:2};   // сколько сердец даёт эпизод
@@ -448,7 +448,18 @@ function save(){ try{ localStorage.setItem('printILY3', JSON.stringify({h:G.hear
 function load(){
   try{
     const d = JSON.parse(localStorage.getItem('printILY3')||'null');
-    if(d && d.h){ G.hearts = new Array(NH).fill(false); for(let i=0;i<Math.min(NH,d.h.length);i++) G.hearts[i] = !!d.h[i]; }
+    if(d && Array.isArray(d.h)){
+      G.hearts = new Array(NH).fill(false);
+      // Старый прогресс содержал удалённый бонус в позиции EP_N+5.
+      const removedAt = EP_N + 5;
+      const oldLayout = d.h.length === NH + 1;
+      for(let i=0;i<d.h.length;i++){
+        if(oldLayout && i === removedAt) continue;
+        const j = oldLayout && i > removedAt ? i-1 : i;
+        if(j < NH) G.hearts[j] = !!d.h[i];
+      }
+      if(oldLayout) save();
+    }
   }catch(e){}
 }
 load();
@@ -508,14 +519,15 @@ G.screens.title = {
    ЭКРАН: КАРТА УРОВНЕЙ
    ========================================================================== */
 const NODE_META = [
-  {name:'РУКА', sub:'держись за руку'},                 // из Print I Love U
-  {name:'РИТМ', sub:'попади в сердцебиение'},           // из Print I Love U
-  {name:'СЕРДЦА', sub:'лови сердца'},
-  {name:'ЛАБИРИНТ', sub:'найди меня'},
-  {name:'ЗОНТ', sub:'уклонись от грусти'},
-  {name:'МЕМОРИ', sub:'найди 8 пар'},
-  {name:'PRINT', sub:'напечатай главное'},
-  {name:'ПИСЬМО', sub:'только для тебя'}
+  {name:'РУКА', sub:'держись за руку'},                 // 0 сюжет 1
+  {name:'АРИТМИЯ', sub:'поймай сердцебиение'},          // 1 сюжет 2
+  {name:'СЕРДЦА', sub:'лови сердца'},                   // 2 сюжет 3
+  {name:'СКВОЗЬ ДОЖДЬ', sub:'дойди до огонька'},        // 3 сюжет 4 лабиринт
+  {name:'ЗОНТИК', sub:'укрой меня от капель'},          // 4 сюжет 5 (было ЗОНТ — не повторяется с радужным зонтом в бонусах)
+  {name:'ЛАБИРИНТ ЧУВСТВ', sub:'найди правильный путь'},// 5 бонус лабиринт
+  {name:'ИСПРАВЛЕНИЕ КОДА', sub:'почини программу'},    // бонусный код
+  {name:'ОТПЕЧАТОК', sub:'напечатай главное'},          // бонусная печать
+  {name:'ПИСЬМО', sub:'только для тебя'}                // финал
 ];
 G.screens.map = {
   enter(){ this.t = 0; G.sel = heartsDone()===NH ? NH : clamp(G.sel, 0, NH-1); },
@@ -1013,8 +1025,8 @@ const L2 = {
 
 /* ---------------------------------------------------------------- УРОВЕНЬ 3 */
 const L3 = {
-  name:'НЕ ПРОМОКНИ',
-  hint:'УКЛОНЯЙСЯ ОТ ГРУСТИ 40 СЕК',
+  name:'РАДУЖНЫЙ ЗОНТ',
+  hint:'ЗАЩИТИ СЕРДЦЕ ОТ ДОЖДЯ',
   intro:[D('him','Идёт дождь, и настроение портится.'),D('him','Но я держу над тобой зонт. Уворачивайся, не намокни.')],
   outro:[D('her','Мы не промокли.'),D('him','С тобой — никогда.')],
   enter(){ this.px=W/2; this.t=0; this.lives=3; this.inv=0; this.spawn=0.6; this.items=[]; this.win=40; },
@@ -1131,139 +1143,6 @@ function drawIconAt(name, cx, cy, s, col){
   const w = (name==='heart'?8:10)*s, h = (ICON_H[name]||10)*s;
   drawIcon(name, Math.round(cx - w/2), Math.round(cy - h/2), s, col);
 }
-const L4 = {
-  name:'МЕМОРИ СЕРДЕЦ',
-  hint:'ОТКРОЙ ВСЕ 8 ПАР',       // текст подставляется в enter() из pairN
-  intro:[D('him','Я запоминаю всё, что связано с тобой.'),D('him','Проверим твою память? Открывай пары и ищи быстро.')],
-  outro:[D('her','У меня хорошая память на тебя.'),D('him','Это взаимно.')],
-  enter(){
-    this.t=0; this.moves=0; this.found=0;
-    const pairN = 8;                        // ровно 8 пар — сетка 4x4 без дыр
-    this.pairN = pairN;
-    this.hint = 'ОТКРОЙ ВСЕ '+pairN+' ПАР';
-    const cols = 4, rows = Math.ceil(pairN*2/cols);
-    const cw = Math.floor((W-20)/cols), chh = Math.floor((H-80)/rows);
-    const s = Math.max(16, Math.min(cw-6, chh-6));
-    this.cols=cols; this.rows=rows; this.cs=s;
-    this.ox = Math.round((W - (cols*(s+6)-6))/2);
-    this.oy = Math.round((H - (rows*(s+6)-6))/2) + 6;
-    const pool = ICONS.slice(0, pairN);
-    const deck = []; for(const n of pool){ deck.push(n); deck.push(n); }
-    for(let i=deck.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const t=deck[i]; deck[i]=deck[j]; deck[j]=t; }
-    this.cards = deck.map((n,i)=>({n:n, open:false, done:false, fa:0, pop:0, sh: rnd(0,6.28),
-      x:this.ox + (i%cols)*(s+6), y:this.oy + Math.floor(i/cols)*(s+6)}));
-    this.sel = 0; this.flip = []; this.wait = 0; this.winT = 0; this.streak = 0; this.best = 0;
-  },
-  cardAt(x,y){
-    for(const c of this.cards){ if(x>=c.x && x<=c.x+this.cs && y>=c.y && y<=c.y+this.cs) return c; }
-    return null;
-  },
-  open(c){
-    if(!c || c.open || c.done || this.wait>0 || this.flip.length>=2) return;
-    c.open = true; this.flip.push(c); Snd.flip();
-    if(this.flip.length===2){
-      this.moves++;
-      const [a,b] = this.flip;
-      if(a.n===b.n){
-        a.done=b.done=true; a.pop=b.pop=0.45; this.found++; this.flip=[]; Snd.coin();
-        this.streak++; if(this.streak > this.best) this.best = this.streak;
-        const mx=(a.x+b.x)/2+this.cs/2, my=(a.y+b.y)/2+this.cs/2;
-        fx(mx,my,16,CONFIG.P.gold,80,.6,{g:40});
-        ring(mx,my,CONFIG.P.gold,26,.45,1);
-        popText(mx, my-10, this.streak>1 ? ('ПАРА! x'+this.streak) : 'ПАРА!', CONFIG.P.gold);
-        if(this.streak>0 && this.streak%3===0){ flashScreen(CONFIG.P.gold,.12); confettiRain(8); this.sayStreak = 1.2; }
-        if(this.found>=this.pairN) this.winT = 0.9;
-      } else {
-        this.wait = 0.75; Snd.bad(); this.streak = 0;
-        poof((a.x+b.x)/2+this.cs/2, (a.y+b.y)/2+this.cs/2, '#6b4fa0');
-      }
-    }
-  },
-  update(dt){
-    this.t += dt;
-    if(this.sayStreak>0) this.sayStreak -= dt;
-    for(const c of this.cards){
-      c.fa = approach(c.fa, c.open?1:0, 0.0005, dt);
-      if(c.pop>0) c.pop = Math.max(0, c.pop - dt);
-    }
-    if(this.wait>0){ this.wait -= dt; if(this.wait<=0){ for(const c of this.flip) c.open=false; this.flip=[]; } }
-    if(this.winT>0){ this.winT -= dt; if(this.winT<=0){ this.winT = 0; winLevel(LEVELS.indexOf(this)); } }
-  },
-  key(k){
-    if(k==='ArrowLeft'){ this.sel=(this.sel+this.cards.length-1)%this.cards.length; Snd.blip(); }
-    if(k==='ArrowRight'){ this.sel=(this.sel+1)%this.cards.length; Snd.blip(); }
-    if(k==='ArrowUp'){ this.sel=(this.sel+this.cards.length-this.cols)%this.cards.length; Snd.blip(); }
-    if(k==='ArrowDown'){ this.sel=(this.sel+this.cols)%this.cards.length; Snd.blip(); }
-    if(k===' '||k==='Enter') this.open(this.cards[this.sel]);
-  },
-  tap(x,y){ const c=this.cardAt(x,y); if(c){ this.sel=this.cards.indexOf(c); this.open(c); } },
-  draw(){
-    skyBg(this.t);
-    const P = CONFIG.P, t = this.t;
-    // мягкое свечение стола + пылинки
-    glowAt(W/2, H/2, Math.max(W,H)*0.5, '#6b4fa0', .10);
-    text('ПАР: '+this.found+' / '+this.pairN, 6, 6, {sc:1, color:this.found>=this.pairN?P.gold:P.ink});
-    text('ХОДЫ: '+this.moves, W-6, 6, {sc:1, align:'right', color:P.dim});
-    if(this.streak>1){
-      const a = .5+.5*Math.abs(Math.sin(t*5));
-      ctx.globalAlpha = a;
-      text('СЕРИЯ x'+this.streak, W/2, 18, {sc:1, align:'center', color:P.gold});
-      ctx.globalAlpha = 1;
-    }
-    for(let i=0;i<this.cards.length;i++){
-      const c = this.cards[i], s = this.cs;
-      const isSel = (i===this.sel);
-      const isc = Math.max(1, Math.floor(s/12));
-      // ширина зависит от угла переворота
-      const kw = Math.abs(Math.cos(c.fa*Math.PI/2));
-      const cw = Math.max(1, Math.round(s*kw));
-      const cx0 = c.x + Math.floor(s/2);
-      const bob = c.done ? Math.round(Math.sin(t*2.4 + c.sh)*1) : 0;
-      const cy0 = c.y + Math.floor(s/2) + bob - (c.pop>0 ? Math.round(c.pop*4) : 0);
-      const X = cx0 - Math.floor(cw/2), Y = cy0 - Math.floor(s/2);
-      if(cw < 2) continue;
-      if(c.done){
-        glowAt(cx0, cy0, s*0.7, P.pink2, .14 + .06*Math.sin(t*3+c.sh));
-        ctx.fillStyle='#3a2560'; ctx.fillRect(X-2,Y-2,cw+4,s+4);
-        ctx.fillStyle='#241445'; ctx.fillRect(X,Y,cw,s);
-        drawIconAt(c.n, cx0, cy0, isc, P.pink2);
-        if(c.pop>0){ ctx.globalAlpha = clamp(c.pop*2,0,1); ctx.fillStyle='#fff6e8'; ctx.fillRect(X,Y,cw,s); ctx.globalAlpha=1; }
-      } else if(kw > .5){
-        // рубашка
-        ctx.fillStyle='#4a2f7a'; ctx.fillRect(X-2,Y-2,cw+4,s+4);
-        ctx.fillStyle='#5d3f96'; ctx.fillRect(X,Y,cw,s);
-        ctx.fillStyle='#7452b5'; ctx.fillRect(X,Y,cw,2);
-        ctx.fillStyle='#8a68c9';
-        for(let yy=6;yy<s-4;yy+=6) for(let xx=6;xx<s-4;xx+=6) ctx.fillRect(X+xx,Y+yy,2,2);
-        if(cw>6){
-          // маленькое сердечко в центре рубашки
-          heart(X+Math.floor(cw/2)-4, Y+Math.floor(s/2)-4, 1, 'rgba(255,209,102,.55)');
-        }
-        if(FXQ>.4) shineRect(X, Y, cw, s, t + i*.7, '#ffffff', 24);
-        if(isSel){
-          ctx.fillStyle='rgba(255,209,102,'+(0.25+0.25*Math.abs(Math.sin(t*6)))+')';
-          ctx.fillRect(X-4,Y-4,cw+8,2); ctx.fillRect(X-4,Y+s+2,cw+8,2); ctx.fillRect(X-4,Y-4,2,s+8); ctx.fillRect(X+cw+2,Y-4,2,s+8);
-        }
-      } else {
-        // рубашка/лицо «в профиль»
-        ctx.fillStyle='#3a2560'; ctx.fillRect(X-2,Y-2,cw+4,s+4);
-        ctx.fillStyle='#4a2f7a'; ctx.fillRect(X,Y,cw,s);
-        ctx.fillStyle='#6b4fa0'; ctx.fillRect(X+cw-1,Y,1,s);
-      }
-      if(!c.open && !c.done && kw>0.5){
-        ctx.fillStyle='#8a68c9';
-        for(let yy=6;yy<s-4;yy+=6) for(let xx=6;xx<s-4;xx+=6) ctx.fillRect(X+xx,Y+yy,2,2);
-        drawIconAt(c.n, cx0, cy0, isc, P.pink);
-      }
-    }
-    if(this.sayStreak>0){
-      ctx.globalAlpha = clamp(this.sayStreak,0,1);
-      text('ПАРА ЗА ПАРОЙ!', W/2, H-16, {sc:1, align:'center', color:P.gold});
-      ctx.globalAlpha = 1;
-    }
-  }
-};
-
 /* ---------------------------------------------------------------- УРОВЕНЬ 5 */
 const L5 = {
   name:'PRINT I LOVE YOU',
@@ -1618,7 +1497,7 @@ const L7 = {
   }
 };
 
-const LEVELS = [L6, L7, L1, L2, L3, L4, L5];
+const LEVELS = [L6, L7, L1, L2, L3, L5];
 
 /* ==========================================================================
    ФИНАЛ: ПИСЬМО

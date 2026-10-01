@@ -1,5 +1,5 @@
 /* ==========================================================================
-   ЧАСТЬ 19 · СБОРКА: 5 эпизодов (8 сердец) + 8 бонусных мини-игр + финал
+   ЧАСТЬ 19 · СБОРКА: 5 эпизодов (8 сердец) + 7 бонусных мини-игр + финал
    ========================================================================== */
 
 /* --- порядок уровней: сначала сюжет, потом бонус --- */
@@ -18,15 +18,13 @@ const ARC_META = [
   {name:'РИТМ',    short:'РИТМ',    sub:'жми в такт',      icon:'beat'},
   {name:'СЕРДЦА',  short:'СЕРДЦА',  sub:'лови капли',      icon:'heart'},
   {name:'ЛАБИРИНТ',short:'ЛАБИРИНТ',sub:'найди меня',      icon:'maze'},
-  {name:'ЗОНТ',    short:'ЗОНТ',    sub:'уклонись от грусти', icon:'umbrella'},
-  {name:'МЕМОРИ',  short:'МЕМОРИ',  sub:'найди 8 пар',     icon:'cards'},
+  {name:'РАДУЖНЫЙ ЗОНТ', short:'ЗОНТ', sub:'уклонись от грусти', icon:'umbrella'},
   {name:'КОД',     short:'КОД',     sub:'почини программу',icon:'code'},
   {name:'PRINT',   short:'ПЕЧАТЬ',  sub:'напечатай главное',icon:'printer'}
 ];
 /* иконки для бонусных уровней (те же 8x8, что у сюжетных) */
 EP_BIT.hand    = ['..####..','..#..#..','.#....#.','#..##..#','#..##..#','#......#','.#....#.','..####..'];
 EP_BIT.umbrella= ['...##...','..####..','.##..##.','########','.######.','..#..#..','..#..#..','..####..'];
-EP_BIT.cards   = ['##......','.##.....','.###....','.####...','.#####..','.######.','........','........'];
 EP_BIT.printer = ['..####..','.#....#.','########','########','........','.######.','.#....#.','.######.'];
 NODE_META.length = 0;
 for(const m of STORY_META) NODE_META.push(m);
@@ -42,8 +40,8 @@ const _nodeIcon = drawNodeIcon;
 drawNodeIcon = function(i, x, y, col){
   if(i === FINALE_NODE){ drawIconAt('heart', x, y, 2, col); return; }
   if(i < EP_N){ blitBits(EP_BIT[EP_ICON_NAMES[i]], x, y, 2, col); return; }
-  if(i === EP_N + 6){ blitBits(EP_BIT.code, x, y, 2, col); return; }    // бонус «КОД»
-  if(i === EP_N + 7){ _nodeIcon(6, x, y, col); return; }               // бонус «PRINT»
+  if(i === EP_N + 5){ blitBits(EP_BIT.code, x, y, 2, col); return; }    // бонус «КОД»
+  if(i === EP_N + 6){ _nodeIcon(6, x, y, col); return; }               // бонус «PRINT»
   if(i < FINALE_NODE){ _nodeIcon(i-EP_N, x, y, col); return; }
   drawIconAt('letter', x, y, 2, col);
 };
@@ -160,7 +158,7 @@ function mapPick(i){
 }
 function mapTabOf(i){ return (i < EP_N || i === FINALE_NODE) ? 0 : 1; }
 
-/* --- окно «ПРОГРЕСС.exe» --- */
+/* --- окно «ДОСТИЖЕНИЯ.exe» --- */
 mapWindowContent = function(win){
   const r = Win.inner(win);
   if(win.tab == null) win.tab = mapTabOf(G.sel);
@@ -211,7 +209,7 @@ G.screens.map = {
 G.screens.desktop.buildIcons = function(){
   this.icons = [
     {kind:'level',   idx:0, icon:'cipher', name:'ШИФР.exe',      node:0},
-    {kind:'arcade',  idx:EP_N, icon:'dice', name:'ПРОГРЕСС.exe', node:EP_N},
+    {kind:'arcade',  idx:EP_N, icon:'dice', name:'ДОСТИЖЕНИЯ.exe', node:EP_N},
     {kind:'term',    icon:'term', name:'КОМАНДНАЯ СТРОКА'},
     {kind:'set',     icon:'set',  name:'ПАРАМЕТРЫ'},
     {kind:'readme',  icon:'txt',  name:'README.txt'},
@@ -229,7 +227,7 @@ G.screens.desktop.launch = function(it, dbl){
   if(it.kind==='arcade'){
     Snd.coin(); ripple(it.tx, it.ty);
     G.sel = EP_N;
-    if(!(G.win && G.win.kind==='map')) Win.open('map','ПРОГРЕСС.exe',{w:Math.min(W-8,224), h:Math.min(H-30,320), from:{x:it.tx-20,y:it.ty-16,w:40,h:32}});
+    if(!(G.win && G.win.kind==='map')) Win.open('map','ДОСТИЖЕНИЯ.exe',{w:Math.min(W-8,224), h:Math.min(H-30,320), from:{x:it.tx-20,y:it.ty-16,w:40,h:32}});
     if(G.win && G.win.kind==='map') G.win.tab = 1;
     return;
   }
@@ -237,7 +235,7 @@ G.screens.desktop.launch = function(it, dbl){
     Snd.blip(); ripple(it.tx, it.ty);
     G.sel = it.idx;
     if(G.win && G.win.kind==='map'){ G.win.tab = mapTabOf(it.idx); }
-    else Win.open('map','ПРОГРЕСС.exe',{w:Math.min(W-8,224), h:Math.min(H-30,320), from:{x:it.tx-20,y:it.ty-16,w:40,h:32}});
+    else Win.open('map','ДОСТИЖЕНИЯ.exe',{w:Math.min(W-8,224), h:Math.min(H-30,320), from:{x:it.tx-20,y:it.ty-16,w:40,h:32}});
     if(G.win && G.win.kind==='map') G.win.tab = mapTabOf(it.idx);
     return;
   }

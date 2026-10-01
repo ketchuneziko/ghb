@@ -26,9 +26,10 @@ function drawWallpaper(t){
   // дальний город (силуэт)
   ctx.fillStyle = 'rgba(23,12,46,.7)';
   const R2 = mulberry32(51);
+  const farBase = H - 30;
   for(let x=-4;x<W;x+=11){
     const bh = 8 + Math.round(R2()*20);
-    ctx.fillRect(x, H-30-bh, 10, bh+2);
+    ctx.fillRect(x, farBase-bh, 10, Math.min(bh+2, H - (farBase-bh)));
   }
   stars(t);
   motes(t, 20, '#c9bde8', .3);
@@ -43,13 +44,13 @@ function drawWallpaper(t){
   }
   // сердце-водяной знак
   ctx.globalAlpha = 0.10; heart(Math.round(W/2)-20, Math.round(H*0.30)-15, 5, '#ff5d8f'); ctx.globalAlpha = 1;
-  // город внизу
+  // город внизу — не вылезает за границы экрана
   const baseY = H - 30;
   const R = mulberry32(99);
   let x = -6;
   while(x < W){
-    const bw = 14 + Math.floor(R()*20), bh = 18 + Math.floor(R()*46);
-    ctx.fillStyle = '#170c2e'; ctx.fillRect(x, baseY-bh, bw, bh+34);
+    const bw = 14 + Math.floor(R()*20), bh = 18 + Math.floor(Math.min(R()*20, 20));
+    ctx.fillStyle = '#170c2e'; ctx.fillRect(x, baseY-bh, bw, bh+4);
     ctx.fillStyle = '#221541'; ctx.fillRect(x, baseY-bh, bw, 1);
     for(let wy = baseY-bh+4; wy < baseY-5; wy += 6){
       for(let wx = x+3; wx < x+bw-3; wx += 5){
@@ -63,7 +64,7 @@ function drawWallpaper(t){
     }
     x += bw + 3;
   }
-  ctx.fillStyle = '#100820'; ctx.fillRect(0, baseY+2, W, H-baseY);
+  ctx.fillStyle = '#100820'; ctx.fillRect(0, baseY+2, W, H-baseY-2);
 }
 
 /* --- содержимое окна «карта прогресса» --- */
@@ -137,11 +138,11 @@ G.screens.desktop = {
     this.startOpen = false; this.startSel = 0;
     this.curSeen = false; this.hover = -1; this.pressBtn = null;
     this.lastPY = ptr.y;
-    if(G.openMap){ G.openMap = false; if(!G.win) Win.open('map', 'ПРОГРЕСС.exe', {w:Math.min(W-8,224), h:Math.min(H-30,320)}); }
+    if(G.openMap){ G.openMap = false; if(!G.win) Win.open('map', 'ДОСТИЖЕНИЯ.exe', {w:Math.min(W-8,224), h:Math.min(H-30,320)}); }
   },
   buildIcons(){
     const list = [];
-    const files = ['RUKA.exe','RITM.exe','SERDCA.exe','MAZE.exe','ZONT.exe','MEMORY.exe','CODE.exe','PRINT.exe'];
+    const files = ['SHIFR.exe','RITM.exe','VOSPOMINANIYA.exe','LABIRINT.exe','CODE.exe','RUKA.exe','RITM_BONUS.exe','SERDCA.exe','MAZE_BONUS.exe','RADUZHNY_ZONT.exe','CODE_BONUS.exe','PRINT.exe'];
     for(let i=0;i<NH;i++){
       list.push({kind:'level', idx:i, icon:i, name: files[i] || ('LEVEL'+i+'.exe'), node:i});
     }
@@ -366,16 +367,16 @@ G.screens.desktop = {
   },
   startItems(){
     return [
-      {t:'ПРОГРЕСС.exe', f:()=>{ this.openMapWin(); }},
+      {t:'ДОСТИЖЕНИЯ.exe', f:()=>{ this.openMapWin(); }},
       {t:'О ПРОГРАММЕ', f:()=>{ Win.open('about','О ПРОГРАММЕ',{w:170,h:82}); }},
       {t:'МУЗЫКА: '+(Snd.musicOn?'ВКЛ':'ВЫКЛ'), f:()=>{ Snd.musicOn = !Snd.musicOn; Snd.blip(); }},
       {t:'ЗВУК: '+(Snd.on?'ВКЛ':'ВЫКЛ'), f:()=>{ Snd.on = !Snd.on; Snd.blip(); }},
-      {t:'НАЧАТЬ ЗАНОВО', f:()=>{ G.hearts = new Array(NH).fill(false); save(); G.fails = {}; Snd.bad(); Win.open('map','ПРОГРЕСС.exe',{w:Math.min(W-8,224), h:Math.min(H-30,320)}); }}
+      {t:'НАЧАТЬ ЗАНОВО', f:()=>{ G.hearts = new Array(NH).fill(false); save(); G.fails = {}; Snd.bad(); Win.open('map','ДОСТИЖЕНИЯ.exe',{w:Math.min(W-8,224), h:Math.min(H-30,320)}); }}
     ];
   },
   openMapWin(){
     if(G.win && G.win.kind==='map'){ Win.close(); return; }
-    Win.open('map','ПРОГРЕСС.exe',{w:Math.min(W-8,224), h:Math.min(H-30,320)});
+    Win.open('map','ДОСТИЖЕНИЯ.exe',{w:Math.min(W-8,224), h:Math.min(H-30,320)});
   },
   launch(it, dbl){
     if(it.kind==='level'){
@@ -383,7 +384,7 @@ G.screens.desktop = {
         Snd.blip(); ripple(it.tx, it.ty);
         G.sel = it.idx;
         if(G.win && G.win.kind==='map'){ Snd.blip(); }
-        else Win.open('map','ПРОГРЕСС.exe',{w:Math.min(W-8,224), h:Math.min(H-30,320), from:{x:it.tx-20,y:it.ty-16,w:40,h:32}});
+        else Win.open('map','ДОСТИЖЕНИЯ.exe',{w:Math.min(W-8,224), h:Math.min(H-30,320), from:{x:it.tx-20,y:it.ty-16,w:40,h:32}});
         return;
       }
       Snd.coin(); ripple(it.tx, it.ty);

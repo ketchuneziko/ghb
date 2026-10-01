@@ -1,5 +1,6 @@
 from PIL import Image, ImageDraw, ImageFont
 import json
+import os
 
 FP = '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'
 SIZE = 12
@@ -9,6 +10,7 @@ TH = 120
 
 CHARS = " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
 CHARS += "АБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдежзийклмнопрстуфхцчшщъыьэюяЁё№«»…—"
+CHARS += "ӘҒҚҢӨҰҮҺІәғқңөұүһі"
 
 f = ImageFont.truetype(FP, SIZE)
 out = {}
@@ -39,7 +41,8 @@ heart_rows = ['0'] * 6 + ['66', 'ff', 'ff', '7e', '3c', '18'] + ['0'] * 4
 out['\u2665'] = (8, CELL, 0, ','.join(heart_rows))
 
 data = {'asc': ASC, 'cell': CELL, 'g': out}
-open('/home/user/game/src/font.json', 'w', encoding='utf-8').write(json.dumps(data, ensure_ascii=False))
+out_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'font.json')
+open(out_path, 'w', encoding='utf-8').write(json.dumps(data, ensure_ascii=False))
 print('glyphs:', len(out))
 for ch in "ЯЖШЩЁЭab0":
     w, h, y0, s = out[ch]

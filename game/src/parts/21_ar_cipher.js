@@ -36,7 +36,7 @@ AR_HINTS.cipher = [
 ];
 
 const AR_CIPHER = {
-  hint: 'НАЖМИ СИМВОЛ ИЛИ КНОПКУ «ПРОВЕРИТЬ»',
+  hint: 'ИСПОЛЬЗУЙ КНОПКИ ВНИЗУ',
   hearts: 1,
   outro: [D('him','Ты разгадала. Значит, шифры для тебя — не шифры.'),
           D('him','Запомни это. Я пригожусь.')],
@@ -48,7 +48,11 @@ const AR_CIPHER = {
     this.zones = []; this.flips = [0,0,0]; this.parts = {}; this.dial = 0;
     this.setScene('l1');
   },
-  on_l1(){ this.sel1 = -1; },
+  on_l1(){
+    const next = ARC1_HIDE.find(i => !this.ans[i]);
+    this.sel1 = next == null ? -1 : next;
+    this.cursor = this.sel1 < 0 ? 0 : this.sel1;
+  },
   on_l2(){ this.flips = [0, 0, 0]; this.sel2 = -1; },
   on_l3(){ this.dial = 0; },
   on_win(){},
@@ -76,21 +80,21 @@ const AR_CIPHER = {
     for(let k=list.length-1;k>0;k--){ const j = Math.floor(r()*(k+1)); const t=list[k]; list[k]=list[j]; list[j]=t; }
     return list;
   },
-  /** клавиатура: если варианты не выбраны — взять первый */
-  tryPick(){
-    if(this.sel1 < 0){ this.sel1 = this.cursor; Snd.flip(); return; }
-    const o = this.l1opts(this.sel1);
-    this.choose1(this.sel1, o[0]);
-  },
   choose1(i, ch){
     this.ans = this.ans || {};
     if(this.ans[i]) return;
     const cells = this.l1cells();
+    if(!cells[i] || !cells[i].hide){
+      this.say('ВЫБЕРИ ПОЗИЦИЮ ПОД ЗНАКОМ ?', '#8ce99a');
+      return;
+    }
     if(ch === cells[i].ch){
       this.ans[i] = ch;
       Snd.coin();
       hitSpark(W/2, 56, CONFIG.P.gold, 'ВЕРНО');
       fx(W/2, 56, 10, [CONFIG.P.gold, '#fff6e8'], 70, .5, {g:40});
+      const next = ARC1_HIDE.find(pos => !this.ans[pos]);
+      if(next != null){ this.sel1 = next; this.cursor = next; }
       if(Object.keys(this.ans).length >= ARC1_HIDE.length){
         this.say('СИМВОЛЫ ПРИЗНАНЫ: ' + ARC1_PLAIN, CONFIG.P.green);
         this.wait = 1.4;
@@ -139,47 +143,70 @@ const AR_CIPHER = {
     }
   },
   say(t, col){ this.msg = t; this.msgCol = col||CONFIG.P.ink; this.msgT = 1.6; },
+  bottomBtn(L, id, label, x, y, w, h, action, opt){
+    opt = opt || {};
+    L.bottom = L.bottom || [];
+    const box = {x:Math.round(x), y:Math.round(y), w:Math.round(w), h:Math.round(h)};
+    const hover = hit(box, ptr.x, ptr.y);
+    glassBtn(box.x, box.y, box.w, box.h, label, {
+      press:hover || !!opt.selected,
+      color:opt.color || (opt.selected ? CONFIG.P.gold : '#8ce99a'),
+      dis:!!opt.dis
+    });
+    L.bottom.push({ ...box, id, action, dis:!!opt.dis });
+  },
 
   /* ---------------- ввод ---------------- */
-  key(k){
-    if(k==='ArrowLeft'){ this.cursor = (this.cursor+99)%8; Snd.blip(); }
-    if(k==='ArrowRight'){ this.cursor = (this.cursor+1)%8; Snd.blip(); }
-    if(k===' '||k==='Enter'){
-      if(this.scene === 'l1' && this.sel1 >= 0){ this.tryPick(); return; }
-      if(this.scene === 'l2'){ this.check2(); return; }
-      if(this.scene === 'l3'){ this.check3(); return; }
+  tapBottom(x,y){
+    const L = this.layout || {};
+    for(const b of (L.bottom || [])){
+      if(hit(b,x,y)){
+        if(!b.dis && b.action) b.action();
+        return true;
+      }
+    }
+    return false;
+  },
+  t_l1(x,y){
+    const L = this.layout || {};
+    if(this.tapBottom(x,y)) return;
+    for(const b of (L.cells||[])) if(hit(b,x,y)){
+      const c = this.l1cells()[b.i];
+      if(!c || !c.hide){ this.say('ВЫБЕРИ ПОЗИЦИЮ ПОД ЗНАКОМ ?', '#8ce99a'); return; }
+      this.cursor = b.i; Snd.blip(); this.sel1 = b.i; Snd.flip(); return;
+    }
+  },
+  t_l2(x,y){
+    const L = this.layout || {};
+    if(this.tapBottom(x,y)) return;
+    for(const b of (L.arrow||[])) if(hit(b,x,y)){ this.tapRow(b.k); return; }
+  },
+  t_l3(x,y){ this.tapBottom(x,y); },
+  k_l1(k){
+    if(k==='ArrowLeft' || k==='ArrowRight'){
+      const targets = ARC1_HIDE.filter(i=>!this.ans[i]);
+      if(targets.length){
+        const at = Math.max(0,targets.indexOf(this.sel1));
+        this.sel1 = targets[(at + (k==='ArrowRight'?1:targets.length-1))%targets.length];
+        this.cursor = this.sel1; Snd.blip();
+      }
+      return;
     }
     if(k==='1'||k==='2'||k==='3'||k==='4'){
-      const n = +k;
-      if(this.scene === 'l1' && this.sel1 >= 0){ const o = this.l1opts(this.sel1); this.choose1(this.sel1, o[n-1]); }
-      return;
-    }
-    if(k==='ArrowUp' || k==='ArrowDown'){
-      if(this.scene === 'l1'){ this.cursor = (this.cursor + (k==='ArrowRight'||k==='ArrowDown'?1:7))%8; Snd.blip(); }
-      if(this.scene === 'l3'){ this.dial = (this.dial + (k==='ArrowRight'?1:31))%32; Snd.blip(); this.check3(); }
-      if(this.scene === 'l2'){ this.tapRow(k==='ArrowDown'?1:2); }
+      if(this.sel1>=0){ const opts=this.l1opts(this.sel1); this.choose1(this.sel1,opts[+k-1]); }
     }
   },
-  tap(x,y){
-    const L = this.layout || {};
-    if(this.scene === 'l1'){
-      for(const b of (L.cells||[])) if(hit(b,x,y)){ this.cursor = b.i; Snd.blip(); this.sel1 = b.i; Snd.flip(); return; }
-      for(const b of (L.opts||[])) if(hit(b,x,y)){ this.choose1(this.cursor, b.ch); return; }
-      if(hit(L.next,x,y)){ this.setScene('l2'); Snd.coin(); }
-      return;
-    }
-    if(this.scene === 'l2'){
-      for(const b of (L.arrow||[])) if(hit(b,x,y)){ this.tapRow(b.k); return; }
-      if(hit(L.next,x,y)){ this.setScene('l3'); Snd.coin(); }
-      return;
-    }
-    if(this.scene === 'l3'){
-      if(hit(L.minus,x,y)){ this.dial = (this.dial+31)%32; Snd.blip(); this.check3(); return; }
-      if(hit(L.plus,x,y)){ this.dial = (this.dial+1)%32; Snd.blip(); this.check3(); return; }
-      if(hit(L.next,x,y)){ this.check3(); return; }
-    }
+  k_l2(k){
+    if(k==='ArrowUp') this.tapRow(0);
+    else if(k==='ArrowDown') this.tapRow(1);
+    else if((k===' '||k==='Enter') && this.flips[1]===1) this.setScene('l3');
   },
-
+  k_l3(k){
+    if(k==='ArrowLeft'||k==='ArrowDown'){ this.dial=(this.dial+31)%32; Snd.blip(); }
+    else if(k==='ArrowRight'||k==='ArrowUp'){ this.dial=(this.dial+1)%32; Snd.blip(); }
+    else if(k==='0'){ this.dial=0; Snd.blip(); }
+    else if(k===' '||k==='Enter') this.check3();
+  },
   /* ---------------- логика сцен ---------------- */
   u_l1(dt){ this.tScene(dt); },
   u_l2(dt){ this.tScene(dt); },
@@ -198,7 +225,6 @@ const AR_CIPHER = {
       if(this.scene === 'l1') this.setScene('l2');
       else if(this.scene === 'l2') this.setScene('l3');
     } }
-    this.zones = arBar(H-20, true);
   },
 
   /* ---------------- отрисовка ---------------- */
@@ -235,10 +261,10 @@ const AR_CIPHER = {
     const P = CONFIG.P, t = this.sceneT;
     this.d_all();
     const L = this.layout;
+    L.bottom = [];
     this.ans = this.ans || {};
     const cells = this.l1cells();
     text('СИМВОЛ И ЕГО МЕСТО', W/2, 20, {sc:1, align:'center', color:P.gold});
-    // полоса символов
     const cw = Math.min(26, Math.floor((W-16)/ARC1_PLAIN.length));
     const x0 = Math.round(W/2 - (ARC1_PLAIN.length*cw)/2), y0 = 34;
     for(let i=0;i<cells.length;i++){
@@ -249,37 +275,38 @@ const AR_CIPHER = {
       ctx.fillRect(X, y0, cw-2, 20);
       ctx.fillStyle = done ? '#8ce99a' : (sel ? P.gold : '#4f9a70');
       ctx.fillRect(X, y0, cw-2, 2); ctx.fillRect(X, y0+18, cw-2, 2);
-      const ch = done ? c.ch : (sel ? '?' : c.ch);
+      const ch = done ? c.ch : (c.hide ? '?' : c.ch);
       text(ch, X + (cw-2)/2, y0+4, {sc:1, align:'center', color: done?'#c8ffd8':(sel?'#fff6e8':'#8ce99a')});
       text('П' + c.pos, X + (cw-2)/2, y0+24, {sc:1, align:'center', color:'#3f7a58'});
       L.cells = L.cells || []; L.cells.push({x:X, y:y0, w:cw-2, h:20, i:i});
     }
-    // варианты для выбранной ячейки
-    if(this.sel1 >= 0){
-      const opts = this.l1opts(this.sel1);
-      const ow = Math.min(34, Math.floor((W-16)/opts.length));
-      const oy = y0 + 42, ox = Math.round(W/2 - (opts.length*ow)/2);
-      for(let i=0;i<opts.length;i++){
-        const X = ox + i*ow;
-        const on = ptr.x>X && ptr.x<X+ow-2 && ptr.y>oy && ptr.y<oy+18;
-        glassBtn(X, oy, ow-2, 18, opts[i], {press:on, color: on?P.gold:'#8ce99a'});
-        (L.opts = L.opts || []).push({x:X, y:oy, w:ow-2, h:18, ch:opts[i]});
-      }
-    } else {
-      text('ВЫБЕРИ СИМВОЛ С «?»', W/2, y0+44, {sc:1, align:'center', color:'#4f9a70'});
-    }
-    // заряд терпения
-    const bx = 6, by = H-56;
+    text(this.sel1 >= 0 ? 'ВЫБИРАЙ БУКВУ КНОПКАМИ ВНИЗУ' : 'ВЫБЕРИ ПОЗИЦИЮ П2 ИЛИ П5 ВНИЗУ',
+         W/2, y0+44, {sc:fitSc(this.sel1 >= 0 ? 'ВЫБИРАЙ БУКВУ КНОПКАМИ ВНИЗУ' : 'ВЫБЕРИ ПОЗИЦИЮ П2 ИЛИ П5 ВНИЗУ',W-12,1), align:'center', color:'#4f9a70'});
+    const bx = 6, by = H-104;
     text('ЗАРЯД', bx, by, {sc:1, color:'#4f9a70'});
     for(let i=0;i<5;i++){
       ctx.fillStyle = i < this.charge ? '#8ce99a' : '#1d3a2a';
       ctx.fillRect(bx+38+i*7, by+2, 5, 6);
     }
+    const targetY = H-64, rowY = H-42, bh = 16, margin = 8, targetGap = 8;
+    const targetW = Math.floor((W-margin*2-targetGap)/2);
+    for(let k=0;k<ARC1_HIDE.length;k++){
+      const i = ARC1_HIDE[k], solved = !!this.ans[i], label = 'П' + (i+1) + (solved?' OK':'');
+      this.bottomBtn(L,'pos'+(i+1),label,margin+k*(targetW+targetGap),targetY,targetW,bh,
+        ()=>{ this.sel1=i; this.cursor=i; Snd.flip(); },
+        {selected:this.sel1===i && !solved, dis:solved, color:solved?P.green:undefined});
+    }
     if(Object.keys(this.ans).length >= ARC1_HIDE.length){
-      const nw = {x:W/2-32, y:H-40, w:64, h:18};
-      const on = hit(nw, ptr.x, ptr.y);
-      glassBtn(nw.x, nw.y, nw.w, nw.h, 'ДАЛЬШЕ', {press:on, color:on?P.gold:'#8ce99a'});
-      L.next = nw;
+      const nw = Math.min(96,W-24), nx = Math.round((W-nw)/2);
+      this.bottomBtn(L,'next','ДАЛЕЕ',nx,rowY,nw,bh,()=>{ this.setScene('l2'); Snd.coin(); },{color:P.gold});
+    } else if(this.sel1 >= 0){
+      const at = this.sel1, opts = this.l1opts(at), gap = 3, cm = 6;
+      const cw2 = Math.floor((W-cm*2-gap*3)/4), sx = Math.round((W-(cw2*4+gap*3))/2);
+      for(let k=0;k<opts.length;k++){
+        const ch = opts[k], x = sx+k*(cw2+gap);
+        this.bottomBtn(L,'choice'+k,ch,x,rowY,cw2,bh,()=>this.choose1(at,ch));
+        L.bottom[L.bottom.length-1].ch = ch;
+      }
     }
     this.d_tail();
   },
@@ -287,13 +314,13 @@ const AR_CIPHER = {
     const P = CONFIG.P, t = this.sceneT;
     this.d_all();
     const L = this.layout;
+    L.bottom = [];
     text('ПОРЯДОК ЧТЕНИЯ', W/2, 20, {sc:1, align:'center', color:P.gold});
     L.arrow = [];
     const rowH = 20, x0 = 6, ww = W-12;
     const top = 46;
     for(let k=0;k<3;k++){
       const y = top + k*(rowH+4);
-      // рамка ряда + стрелка направления
       ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(x0, y, ww, rowH);
       ctx.fillStyle = this.flips[k] ? '#2f6b4a' : '#1d3a2a';
       ctx.fillRect(x0, y, 14, rowH);
@@ -301,10 +328,9 @@ const AR_CIPHER = {
       ctx.fillStyle = '#8ce99a';
       if(this.flips[k]){ for(let i=0;i<5;i++) ctx.fillRect(ax+8-i, ay+i, 1, 9-2*i); }
       else { for(let i=0;i<5;i++) ctx.fillRect(ax+i, ay+i, 1, 9-2*i); }
-      // слова
       const words = ARC2_ROWS[k].words;
       const vis = this.flips[k] ? words.slice().reverse() : words;
-      let tx = x0+18, avail = ww-20;
+      let tx = x0+18;
       for(const w of vis){
         const wpx = textW(w,1);
         text(w, tx, y+3, {sc:1, color:'#c8ffd8'});
@@ -312,24 +338,24 @@ const AR_CIPHER = {
       }
       L.arrow.push({x:x0, y:y, w:ww, h:rowH, k:k});
     }
-    // предпросмотр
     const py = top + 3*(rowH+4) + 10;
     text('СОБРАНО:', W/2, py, {sc:1, align:'center', color:'#4f9a70'});
     const as = this.assembled();
     const lines = wrap(as, W-16, 1).slice(0,3);
     let yy = py+14;
     for(const l of lines){ text(l, W/2, yy, {sc:1, align:'center', color:'#fff6e8'}); yy += 11; }
-    // ответ — все ряды в нужном направлении
     const need = ARC2_ROWS.map(r => r.dir < 0);
     const ok = need.every((v,i)=> this.flips[i] === (v?1:0));
-    if(ok){
-      const nw = {x:W/2-32, y:H-40, w:64, h:18};
-      const on = hit(nw, ptr.x, ptr.y);
-      glassBtn(nw.x, nw.y, nw.w, nw.h, 'ДАЛЬШЕ', {press:on, color:on?P.gold:'#8ce99a'});
-      L.next = nw;
-    } else {
-      text('ТЫКНИ НА СТРЕЛКУ РЯДА', W/2, H-56, {sc:1, align:'center', color:'#3f7a58'});
+    text(ok ? 'ПОРЯДОК ВЕРНЫЙ — НАЖМИ ДАЛЕЕ' : 'НАСТРОЙ НАПРАВЛЕНИЯ КНОПКАМИ ВНИЗУ',
+         W/2, H-56, {sc:fitSc(ok ? 'ПОРЯДОК ВЕРНЫЙ — НАЖМИ ДАЛЕЕ' : 'НАСТРОЙ НАПРАВЛЕНИЯ КНОПКАМИ ВНИЗУ',W-12,1), align:'center', color:ok?P.gold:'#3f7a58'});
+    const rowY = H-42, bh = 16, gap = 3, margin = 6, count = ok ? 4 : 3;
+    const bw = Math.floor((W-margin*2-gap*(count-1))/count), sx = Math.round((W-(bw*count+gap*(count-1)))/2);
+    for(let k=0;k<3;k++){
+      const label = (k+1) + (this.flips[k] ? '<' : '>');
+      this.bottomBtn(L,'row'+(k+1),label,sx+k*(bw+gap),rowY,bw,bh,()=>this.tapRow(k),
+        {selected:this.flips[k] === (need[k]?1:0), color:this.flips[k] === (need[k]?1:0)?P.green:undefined});
     }
+    if(ok) this.bottomBtn(L,'next','ДАЛЕЕ',sx+3*(bw+gap),rowY,bw,bh,()=>{ this.setScene('l3'); Snd.coin(); },{color:P.gold});
     this.d_tail();
   },
   /* --- циферблат. Портрет: дуга. Ландшафт: горизонтальная лента. --- */
@@ -379,35 +405,25 @@ const AR_CIPHER = {
     const P = CONFIG.P, t = this.sceneT;
     this.d_all();
     const L = this.layout;
+    L.bottom = [];
     const land = H < 320;
     text('ОБЩИЙ СДВИГ', W/2, 20, {sc:1, align:'center', color:P.gold});
     const cx = Math.round(W/2);
-    let by;
+    let previewY;
     if(land){
       this.dialFace(14, 42, W-28, 0, this.dial, false);
       text('СДВИГ: ' + this.dial, cx, 60, {sc:1, align:'center', color:'#fff6e8'});
-      by = 72;
+      previewY = 102;
     } else {
       this.dialFace(6, 96, W-12, 54, this.dial, true);
       text('СДВИГ: ' + this.dial, cx, 84, {sc:1, align:'center', color:'#fff6e8'});
-      by = 108;
+      previewY = 140;
     }
-    // --- кнопки сдвига
-    const mw = {x:6, y:by, w:22, h:18};
-    const pw2 = {x:W-28, y:by, w:22, h:18};
-    const on1 = hit(mw, ptr.x, ptr.y), on2 = hit(pw2, ptr.x, ptr.y);
-    glassBtn(mw.x, mw.y, mw.w, mw.h, '-', {press:on1, color:on1?P.gold:'#8ce99a'});
-    glassBtn(pw2.x, pw2.y, pw2.w, pw2.h, '+', {press:on2, color:on2?P.gold:'#8ce99a'});
-    text('СДВИНУТЬ ВСЁ ЦЕЛИКОМ', cx, by+6, {sc:1, align:'center', color:'#3f7a58'});
-    L.minus = mw; L.plus = pw2;
-    // --- расшифровка
+    text('РАСШИФРОВКА:', W/2, previewY, {sc:1, align:'center', color:'#4f9a70'});
     const pv = this.preview3();
-    const py = by + (land ? 30 : 32);
-    text('РАСШИФРОВКА:', W/2, py, {sc:1, align:'center', color:'#4f9a70'});
     const lines = wrap(pv, W-16, 1).slice(0, land ? 3 : 4);
-    let yy = py+13;
+    let yy = previewY+13;
     for(const l of lines){ text(l, W/2, yy, {sc:1, align:'center', color:'#fff6e8'}); yy += 11; }
-    // --- лента алфавита
     if(!land){
       const ay = yy + 6;
       text('ЛЕНТА', W/2, ay, {sc:1, align:'center', color:'#3f7a58'});
@@ -423,14 +439,19 @@ const AR_CIPHER = {
         text(ALPH[ai], x + (cw-1)/2, ay+12, {sc:1, align:'center', color: cur ? '#ffd97a' : '#4f9a70'});
       }
     }
-    // --- правило
     text('СИМВОЛ ПЕРЕХОДИТ В ДРУГОЙ ПО АЛФАВИТУ', W/2, H-52,
-         {sc:1, align:'center', color:'#3f7a58'});
-    // --- проверить
-    const nw = {x:Math.round(W/2-40), y:H-40, w:80, h:18};
-    const on3 = hit(nw, ptr.x, ptr.y);
-    glassBtn(nw.x, nw.y, nw.w, nw.h, 'ПРОВЕРИТЬ', {press:on3, color:on3?P.gold:'#8ce99a'});
-    L.ok = nw;
+         {sc:fitSc('СИМВОЛ ПЕРЕХОДИТ В ДРУГОЙ ПО АЛФАВИТУ',W-12,1), align:'center', color:'#3f7a58'});
+    const rowY = H-42, bh = 16, gap = 3, margin = 6, count = 4;
+    const bw = Math.floor((W-margin*2-gap*(count-1))/count), sx = Math.round((W-(bw*count+gap*(count-1)))/2);
+    const minus = {x:sx, y:rowY, w:bw, h:bh};
+    const plus = {x:sx+(bw+gap), y:rowY, w:bw, h:bh};
+    const zero = {x:sx+2*(bw+gap), y:rowY, w:bw, h:bh};
+    const ok = {x:sx+3*(bw+gap), y:rowY, w:bw, h:bh};
+    this.bottomBtn(L,'minus','-',minus.x,minus.y,minus.w,minus.h,()=>{ this.dial=(this.dial+31)%32; Snd.blip(); });
+    this.bottomBtn(L,'plus','+',plus.x,plus.y,plus.w,plus.h,()=>{ this.dial=(this.dial+1)%32; Snd.blip(); });
+    this.bottomBtn(L,'zero','0',zero.x,zero.y,zero.w,zero.h,()=>{ this.dial=0; Snd.blip(); });
+    this.bottomBtn(L,'check','ПРОВ.',ok.x,ok.y,ok.w,ok.h,()=>this.check3(),{color:P.gold});
+    L.minus=minus; L.plus=plus; L.zero=zero; L.ok=ok;
     this.d_tail();
   },
   d_win(){
@@ -487,7 +508,7 @@ const AR_CIPHER = {
     }
     if(this.msgT > 0){
       ctx.globalAlpha = clamp(this.msgT, 0, 1);
-      const yy = H - 56;
+      const yy = H - 88;
       const w2 = textW(this.msg,1)+10;
       panel(4, yy-3, Math.min(W-8, w2), 15, 'rgba(0,0,0,.8)', this.msgCol||'#8ce99a');
       text(this.msg, Math.min(W-4, w2/2+4), yy, {sc:1, color:this.msgCol||'#8ce99a'});
@@ -495,6 +516,8 @@ const AR_CIPHER = {
     }
     // мерцание курсора
     if(Math.floor(t*3)%2===0){ ctx.fillStyle = '#8ce99a'; ctx.fillRect(W-10, H-18, 6, 8); }
+    if(G.screens.arlevel.showArBar === false) this.zones = [];
+    else this.zones = arBar(H-20, true);
   }
 };
 function hit(r,x,y){ return r && x>=r.x && x<=r.x+r.w && y>=r.y && y<=r.y+r.h; }

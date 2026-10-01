@@ -4,8 +4,8 @@
    ========================================================================== */
 
 const MAZ = {
-  cols: 11, rows: 9,          // клетки
-  hint: 'Возьми зонт и не отпускай меня!'
+  cols: 15, rows: 11,          // клетки — карта стала больше
+  hint: 'Дойди до огонька, нажимай на врагов чтобы убить их!'
 };
 
 const EP4 = {
@@ -21,19 +21,35 @@ const EP4 = {
     const C = MAZ.cols, Rr = MAZ.rows;
     this.walls = [];
     for(let r=0;r<Rr;r++){ this.walls[r]=[]; for(let c=0;c<C;c++) this.walls[r][c] = (c===0||r===0||c===C-1||r===Rr-1) ? 1 : 0; }
-    // карта: ковровое покрытие — 15% стен внутри
-    for(let r=1;r<Rr-1;r++) for(let c=1;c<C-1;c++) if(R() < 0.17) this.walls[r][c] = 1;
+    // карта: больше препятствий — ~25% стен внутри
+    for(let r=1;r<Rr-1;r++) for(let c=1;c<C-1;c++) if(R() < 0.25) this.walls[r][c] = 1;
     // лужи (медленные клетки)
     this.puddles = [];
-    for(let r=1;r<Rr-1;r++) for(let c=1;c<C-1;c++) if(!this.walls[r][c] && R() < 0.10) this.puddles.push({r:r,c:c});
+    for(let r=1;r<Rr-1;r++) for(let c=1;c<C-1;c++) if(!this.walls[r][c] && R() < 0.08) this.puddles.push({r:r,c:c});
     // гарантированный проход: старт -> вдоль верхнего ряда -> вниз -> к огоньку
     for(let c=1;c<C-1;c++) this.walls[1][c] = 0;
     for(let r=1;r<Rr-1;r++) this.walls[r][C-2] = 0;
     this.cx = 1; this.cy = 1; this.gx = 1; this.gy = 1;
     this.warm = {r:Rr-2, c:C-2};
     for(let c=C-2;c>=this.warm.c;c--) this.walls[Rr-2][c] = 0;
+    // враги: 5 штук в проходах, которых можно убить нажатием рядом
+    this.enemies = [];
+    const minDist = 4;
+    for(let i=0;i<5;i++){
+      for(let tries=0; tries<100; tries++){
+        const er = 1 + Math.floor(R()*(Rr-2)), ec = 1 + Math.floor(R()*(C-2));
+        if(this.walls[er][ec]) continue;
+        if(er === 1 && ec < C-1) continue; // не на стартовом пути
+        if(Math.abs(er-1)+Math.abs(ec-1) < minDist) continue;
+        if(Math.abs(er-this.warm.r)+Math.abs(ec-this.warm.c) < minDist) continue;
+        if(this.enemies.some(e => Math.abs(e.r-er)+Math.abs(e.c-ec) < 2)) continue;
+        this.enemies.push({r:er,c:ec, alive:true});
+        break;
+      }
+    }
     this.t = 0; this.ok = false; this.okT = 0; this.slow = 0; this.steps = 0;
-    this.limit = this.shortest()*2 + 14;      // лимит шагов по карте
+    const sh = this.shortest();
+    this.limit = sh + 2;      // всего 2 лишних шага от минимально необходимого
     this.setScene('play');
   },
   on_play(){ this.ok = false; },
@@ -105,6 +121,27 @@ const EP4 = {
     if(FXQ > .5) glowAt(wx, wy, 26, '#ffd166', .3 + .12*Math.sin(t*3));
     ctx.fillStyle = '#ffd166';
     for(let i=0;i<5;i++){ const w2 = 7-i; ctx.fillRect(Math.round(wx-w2/2), Math.round(wy-4-i), w2, 1); }
+    // враги
+    if(this.enemies) for(const e of this.enemies){
+      if(!e.alive) continue;
+      const ex = G2.x + e.c*s + s/2, ey = G2.y + e.r*s + s/2;
+      const near = Math.abs(e.r - this.cy) <= 1 && Math.abs(e.c - this.cx) <= 1;
+      if(near && FXQ > .4) glowAt(ex, ey, 12, CONFIG.P.red, .4);
+      // страшная тень
+      ctx.fillStyle = '#3a0a1a';
+      ctx.fillRect(Math.round(ex-3), Math.round(ey-5), 6, 8);
+      ctx.fillStyle = CONFIG.P.red;
+      ctx.fillRect(Math.round(ex-2), Math.round(ey-4), 2, 2);
+      ctx.fillRect(Math.round(ex+1), Math.round(ey-4), 2, 2);
+      ctx.fillStyle = '#ff6b6b';
+      if(Math.floor(t*3)%2===0) ctx.fillRect(Math.round(ex-1), Math.round(ey-1), 2, 1);
+      if(near){
+        const a = .5 + .5*Math.sin(t*6);
+        ctx.globalAlpha = a;
+        ringPix(ex, ey, 8, CONFIG.P.red, 1);
+        ctx.globalAlpha = 1;
+      }
+    }
     // она
     const px = G2.x + this.cx*s + s/2, py = G2.y + this.cy*s + s;
     ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(px-7, py-2, 14, 2);
@@ -132,6 +169,12 @@ const EP4 = {
     const nx = this.cx+dx, ny = this.cy+dy;
     if(ny<0||nx<0||ny>=MAZ.rows||nx>=MAZ.cols) return;
     if(this.walls[ny][nx]){ Snd.bad(); shake(1.5); return; }
+    // враг на клетке — нельзя наступать, надо сначала убить тапом
+    if(this.enemies && this.enemies.some(e => e.alive && e.r === ny && e.c === nx)){
+      Snd.bad(); shake(2);
+      popText(this.cx*this.cell()+this.grid().x + this.cell()/2, this.cy*this.cell()+this.grid().y-6, 'ВРАГ! ТАПНИ ЧТОБЫ УБИТЬ', CONFIG.P.red);
+      return;
+    }
     this.cx = nx; this.cy = ny; this.steps++;
     if(this.puddles.some(p=>p.r===ny&&p.c===nx)){ this.slow = 0.6; Snd.bad(); }
     else Snd.blip();
@@ -140,6 +183,23 @@ const EP4 = {
       flashScreen('#ffd166', .45); punch(.1);
       for(let i=0;i<12;i++) burstHearts(wx0(this), wy0(this), 2, CONFIG.P.gold);
     }
+  },
+  killEnemyAt(r,c){
+    if(!this.enemies) return false;
+    // можно убить только врага на соседней клетке (в том числе по диагонали)
+    if(Math.abs(r - this.cy) > 1 || Math.abs(c - this.cx) > 1) return false;
+    for(const e of this.enemies){
+      if(e.alive && e.r === r && e.c === c){
+        e.alive = false;
+        Snd.hit(); Snd.coin();
+        const g = this.grid(), s = g.s;
+        const ex = g.x + c*s + s/2, ey = g.y + r*s + s/2;
+        fx(ex, ey, 12, [CONFIG.P.red, CONFIG.P.gold], 80, .7, {g:-40});
+        popText(ex, ey-8, 'УБИТ!', CONFIG.P.green);
+        return true;
+      }
+    }
+    return false;
   },
   k_play(k){
     if(k==='ArrowLeft') this.mv(-1,0);
@@ -154,10 +214,12 @@ const EP4 = {
   t_play(x, y){
     for(const r of this.rArrows)
       if(x>r.x && x<r.x+r.w && y>r.y && y<r.y+r.h){ this.mv(r.d[0], r.d[1]); return; }
-    // свайп по самой карте
+    // тап по карте
     const G2 = this.grid(), s = G2.s;
     if(x>=G2.x && x<G2.x+G2.s*MAZ.cols && y>=G2.y && y<G2.y+G2.s*MAZ.rows){
       const tc = Math.floor((x-G2.x)/s), tr = Math.floor((y-G2.y)/s);
+      // сначала пробуем убить врага в этой клетке если рядом
+      if(this.killEnemyAt(tr, tc)) return;
       const dc = tc - this.cx, dr = tr - this.cy;
       if(Math.abs(dc) >= Math.abs(dr)) this.mv(Math.sign(dc), 0);
       else this.mv(0, Math.sign(dr));

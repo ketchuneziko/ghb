@@ -141,7 +141,7 @@ ARCH_LEVELS.room = {
     }
     if(this.okT > 4.0) arWin();
   },
-  roomH(){ return Math.max(150, H - 96); },
+  roomH(){ return Math.max(120, H - 76); },
   layout(){
     const r = {x:0, y:32, w:W, h:this.roomH()};
     const cols = W > 300 ? 4 : 4;
@@ -206,10 +206,15 @@ ARCH_LEVELS.room = {
     ctx.fillRect(wx-1, wy-1, ww+2, 1); ctx.fillRect(wx-1, wy+wh, ww+2, 1);
     ctx.fillRect(wx-1, wy-1, 1, wh+2); ctx.fillRect(wx+ww, wy-1, 1, wh+2);
     ctx.fillRect(wx+(ww>>1)-1, wy, 2, wh);
-    // лунный луч
+    // лунный луч (не рисуем ниже пола комнаты)
     ctx.globalAlpha = 0.10 + 0.02*Math.sin(t*0.8);
     ctx.fillStyle = '#c8d8ff';
-    for(let i=0;i<34;i++) ctx.fillRect(wx+4+i, wy+wh+i, 18-i*0.45, 1);
+    const floorY = this.roomH() + 32 - 8; // пол комнаты
+    for(let i=0;i<34;i++){
+      const ly = wy+wh+i;
+      if(ly >= floorY) break;
+      ctx.fillRect(wx+4+i, ly, 18-i*0.45, 1);
+    }
     ctx.globalAlpha = 1;
   },
   d_obj(i, t){
@@ -315,12 +320,17 @@ ARCH_LEVELS.room = {
     }
     // прогресс круга
     const bw = Math.min(120, W-60), bx = Math.round(W/2-bw/2);
-    ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillRect(bx, H-56, bw, 3);
-    ctx.fillStyle = CONFIG.P.gold; ctx.fillRect(bx, H-56, Math.round(bw*this.step/ARC5_N), 3);
+    const pby = H > 260 ? H-56 : H-72;
+    ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillRect(bx, pby, bw, 3);
+    ctx.fillStyle = CONFIG.P.gold; ctx.fillRect(bx, pby, Math.round(bw*this.step/ARC5_N), 3);
   },
   d_btns(list){
     this.btns = [];
-    const y = H-38, h = 16;
+    const h = 16;
+    const barH = H > 260 ? H : 0; // кнопки снизу, отступ
+    const by = H > 260 ? H - 38 : H - 56;
+    const ay = H > 260 ? H - 20 : H - 38;
+    const y = by;
     const bw = Math.floor((W-8-(list.length-1)*4)/list.length);
     list.forEach((it,i)=>{
       const x = 4 + i*(bw+4);
@@ -328,7 +338,8 @@ ARCH_LEVELS.room = {
       drawBtn(x, y, bw, h, it.t, {press:on, color: on?'#ffd97a':'#c9bde8'});
       this.btns.push({x:x, y:y, w:bw, h:h, f:it.f});
     });
-    this.btns = this.btns.concat(arBar(H-20, true));
+    if(H > 260) this.btns = this.btns.concat(arBar(H-20, true));
+    else this.btns = this.btns.concat(arBar(H-38, true));
   },
   d_room(){
     const t = this.sceneT;
@@ -456,7 +467,7 @@ ARCH_LEVELS.room = {
     const cx = W/2, cy = Math.round(this.roomH()*0.5);
     glowAt(cx, cy, 40, '#ffd97a', .16 + .05*Math.sin(t*2));
     const lines = wrap('ТРИ ЧАСА СЕМНАДЦАТЬ МИНУТ. МЫ ТОГДА НЕ СПАЛИ.', W-24, 1);
-    let y = H-94;
+    let y = H > 260 ? H-94 : H-110;
     for(const l of lines){ text(l, cx, y, {sc:1, align:'center', color:'#fff6e8'}); y += 11; }
     this.d_btns([{t:'В АРХИВ', f:()=>arWin()}]);
   },

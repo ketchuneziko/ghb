@@ -106,18 +106,19 @@ function txtLines(doc, maxW){
 }
 function drawTxtFile(win){
   const P = CONFIG.P, r = Win.inner(win), t = win.t, d = win.data;
-  const maxW = r.w - 10;
+  const maxW = r.w - (d.name.indexOf('FINAL') >= 0 ? 24 : 10);
   const lines = txtLines(d.doc, maxW);
   const lh = 11, rows = Math.max(1, Math.floor((r.h - 16)/lh));
   d.maxScroll = Math.max(0, lines.length - rows);
   if(d.scroll > d.maxScroll) d.scroll = d.maxScroll;
   ctx.fillStyle = '#150c26'; ctx.fillRect(r.x, r.y, r.w, r.h);
   ctx.fillStyle = 'rgba(107,79,160,.18)'; ctx.fillRect(r.x, r.y, r.w, 1);
-  // портрет автора в углу
-  const av = d.name === 'README_FINAL.txt';
-  if(av) ctx.globalAlpha = .9;
-  if(bothP() && d.name.indexOf('FINAL') >= 0) ctx.drawImage(IMG.him, r.x+r.w-28, r.y+r.h-28, 24, 24);
-  ctx.globalAlpha = 1;
+  // портрет автора в углу (не перекрывает текст, меньше размер)
+  if(d.name.indexOf('FINAL') >= 0 && IMG.him && IMG.him.complete) {
+    ctx.globalAlpha = .9;
+    ctx.drawImage(IMG.him, r.x+r.w-22, r.y+r.h-22, 18, 18);
+    ctx.globalAlpha = 1;
+  }
   // строки
   const vis = lines.slice(d.scroll, d.scroll + rows);
   let y = r.y + 4;
@@ -277,6 +278,11 @@ function ensureExtraIcons(){
     d.icons.push({kind:'devlog', icon:'txt', name:'DEV_LOG.txt', node:-1, tip:'ЖУРНАЛ РАЗРАБОТЧИКА'});
     changed = true;
   }
+  // иконка архива доступна всегда
+  if(!d.icons.some(i => i.kind === 'arch')){
+    d.icons.push({kind:'arch', icon:'arch', name:'ARCHIVE.exe', node:-1, tip:'ТАЙНЫЙ АРХИВ'});
+    changed = true;
+  }
   if(lastFileReady() && !d.icons.some(i => i.file === 'README_FINAL.txt')){
     d.icons.push({kind:'txtfile', icon:'txt', file:'README_FINAL.txt', name:'README_FINAL.txt', node:-1, tip:'ПОСЛЕДНИЙ ФАЙЛ'});
     changed = true;
@@ -298,6 +304,12 @@ G.screens.desktop.launch = function(it, dbl){
     openDevList({x:it.tx-20, y:it.ty-16, w:40, h:30});
     return;
   }
+  if(it.kind === 'arch'){
+    Snd.blip(); ripple(it.tx, it.ty);
+    if(G.win && G.win.kind === 'archive'){ Win.close(); return; }
+    openArchiveWin({x:it.tx-20, y:it.ty-16, w:40, h:32});
+    return;
+  }
   if(it.kind === 'txtfile'){
     Snd.blip(); ripple(it.tx, it.ty);
     if(G.win && G.win.kind === 'map') Win.close();
@@ -306,6 +318,26 @@ G.screens.desktop.launch = function(it, dbl){
     return;
   }
   return _laE0.call(this, it, dbl);
+};
+
+// иконка архива — запечатанный ящик с сердечком
+const _drawIconArch = drawFileIcon;
+drawFileIcon = function(node, cx, cy, o){
+  o = o || {};
+  if(node === 'arch'){
+    const w = 16, h = 14, x = Math.round(cx-w/2), y = Math.round(cy-h/2);
+    ctx.fillStyle = UI.dark; ctx.fillRect(x-1, y-1, w+2, h+2);
+    ctx.fillStyle = '#3a2560'; ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = o.sel ? CONFIG.P.gold : '#5a3f96';
+    ctx.fillRect(x, y, w, 2); ctx.fillRect(x, y+h-2, w, 2);
+    ctx.fillStyle = o.sel ? '#fff6e8' : '#8a6ab0';
+    ctx.fillRect(x+3, y+4, 2, 2); ctx.fillRect(x+w-5, y+4, 2, 2);
+    ctx.fillStyle = o.sel ? CONFIG.P.pink : CONFIG.P.pink2;
+    heart(Math.round(cx)-3, Math.round(cy)-3, 1, o.sel ? CONFIG.P.pink : '#5a3f96');
+    if(o.sel){ ctx.globalAlpha=0.25; ctx.fillStyle=CONFIG.P.gold; ctx.fillRect(x-3,y-3,w+6,h+6); ctx.globalAlpha=1; }
+    return {x:x, y:y, w:w, h:h};
+  }
+  return _drawIconArch(node, cx, cy, o);
 };
 
 /* ------------------------------------------------------------------

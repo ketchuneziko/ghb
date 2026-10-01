@@ -22,6 +22,13 @@ const ARC2_N      = 10;                 // сколько звёзд в созв
 const ARC2_SECRET = [[0.355,0.655],[0.355,0.505],[0.355,0.355],[0.393,0.413],
                      [0.431,0.471],[0.469,0.413],[0.507,0.355],[0.507,0.505],[0.507,0.655]];
 const ARC2_FAKES  = ARC2_FAKE.length;
+const ARC2_BOUNDS = (function(){
+  const pts = ARC2_HEART.concat(ARC2_FAKE);
+  return pts.reduce((b,p)=>({
+    minX:Math.min(b.minX,p[0]), maxX:Math.max(b.maxX,p[0]),
+    minY:Math.min(b.minY,p[1]), maxY:Math.max(b.maxY,p[1])
+  }), {minX:1,maxX:0,minY:1,maxY:0});
+})();
 
 AR_HINTS.stars = [
   'Начни с той звезды, которая горит ярче всех.',
@@ -55,13 +62,17 @@ ARCH_LEVELS.stars = {
   },
   tScene(dt){ this.sceneT += dt; },
   /* ---------- поле ---------- */
-  rect(){ return {x:0, y:18, w:W, h:Math.max(120, H-64-(this.scene==='win'?44:0))}; },
-  /** поле созвездия: чуть выше, чем шире — сердце от этого только лучше читается */
+  // Оставляем отдельное место для статуса и двух рядов нижних кнопок.
+  rect(){ return {x:0, y:18, w:W, h:Math.max(96, H-96)}; },
+  /** Максимальный квадрат, в котором вся карта и свечение звёзд остаются видимыми. */
   sq(){
-    const r = this.rect();
-    const sx = Math.round(r.w*0.92);
-    const sy = Math.max(sx, Math.min(Math.round(r.h*0.92), Math.round(sx*1.45)));
-    return {sx:sx, sy:sy, ox:Math.round(r.x+(r.w-sx)/2), oy:Math.round(r.y+(r.h-sy)/2)};
+    const r = this.rect(), pad = 14;
+    const spanX = Math.max(0.5-ARC2_BOUNDS.minX, ARC2_BOUNDS.maxX-0.5);
+    const spanY = Math.max(0.5-ARC2_BOUNDS.minY, ARC2_BOUNDS.maxY-0.5);
+    const halfW = Math.max(1, r.w/2-pad), halfH = Math.max(1, r.h/2-pad);
+    const size = Math.max(1, Math.floor(Math.min(halfW/spanX, halfH/spanY)));
+    const cx = r.x+r.w/2, cy = r.y+r.h/2;
+    return {sx:size, sy:size, ox:Math.round(cx-size/2), oy:Math.round(cy-size/2)};
   },
   /** нормализованная точка → экран (с зумом и панорамой) */
   toXY(nx, ny){
@@ -313,12 +324,24 @@ ARCH_LEVELS.stars = {
       if(hovered && !this.done){
         ringPix(p[0], p[1], 6, CONFIG.P.pink, 1);
       }
-      // подсказка-подсветка после трёх ошибок на шаге
+      // подсказка: после 3 ошибок лёгкая подсветка, после 4 — явная стрелка куда тыкать
       if(isNeed && this.stepErr >= 3 && !this.done){
         const k = 0.5 + 0.5*Math.sin(t*5);
         ringPix(p[0], p[1], 7 + k*2, CONFIG.P.gold, 1);
         ctx.globalAlpha = 0.4 + 0.3*k;
         text('?', p[0], p[1]-11, {sc:1, align:'center', color:CONFIG.P.gold});
+        ctx.globalAlpha = 1;
+      }
+      if(isNeed && this.stepErr >= 4 && !this.done){
+        const k = 0.7 + 0.3*Math.sin(t*4);
+        ctx.globalAlpha = k;
+        // мигающая стрелка вниз на нужную звезду
+        glowAt(p[0], p[1]-14, 14, CONFIG.P.gold, .6);
+        ctx.fillStyle = CONFIG.P.gold;
+        const ax = Math.round(p[0]), ay = Math.round(p[1]-10);
+        for(let i=0;i<5;i++) ctx.fillRect(ax - 2 + i, ay - 8 + i, 5 - i*2, 1);
+        ctx.fillRect(ax, ay - 3, 1, 5);
+        text('СЮДА', p[0], p[1]-22, {sc:1, align:'center', color:CONFIG.P.gold});
         ctx.globalAlpha = 1;
       }
     }
@@ -394,20 +417,24 @@ ARCH_LEVELS.stars = {
       ctx.globalAlpha = clamp(this.msgT, 0, 1);
       const msc = fitSc(this.msg, W-22, 1);
       const w2 = Math.min(W-8, textW(this.msg,msc)+10);
-      panel(Math.round((W-w2)/2), H-58, w2, 13, 'rgba(6,12,30,.92)', this.msgCol||'#cfe0ff');
-      text(this.msg, W/2, H-55, {sc:msc, align:'center', color:this.msgCol||'#cfe0ff'});
+      panel(Math.round((W-w2)/2), H-75, w2, 13, 'rgba(6,12,30,.92)', this.msgCol||'#cfe0ff');
+      text(this.msg, W/2, H-72, {sc:msc, align:'center', color:this.msgCol||'#cfe0ff'});
       ctx.globalAlpha = 1;
     }
   },
   d_btns(){
     const P = CONFIG.P;
     this.btns = [];
-    const y2 = H-38, y1 = H-20, h = 16;
+    // если кнопки скрыты — не рисуем их и не добавляем зоны
+    if(G.screens.arlevel.showArBar === false) return;
+    // переносим кнопки выше чтобы не закрывали звёзды
+    const y2 = H-54, y1 = H-36, h = 14;
     const items = [
       {t:'НАЗАД', f:()=>this.undo(), off:!this.path.length},
       {t:'ЛИНИИ', f:()=>{ this.lines = !this.lines; }},
       {t: this.zoom>1?'X1':'X1.5', f:()=>{ this.zoom = this.zoom>1?1:1.5; this.clampPan(); }},
-      {t:'ЗАНОВО', f:()=>this.restart()}
+      {t:'ЗАНОВО', f:()=>this.restart()},
+      {t:'КНОПКИ', f:()=>{ G.screens.arlevel.showArBar = false; Snd.blip(); }}
     ];
     const bw = Math.floor((W-8-(items.length-1)*3)/items.length);
     items.forEach((it,i)=>{
